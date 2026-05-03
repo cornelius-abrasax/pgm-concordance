@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PGM Concordance & Theme Search</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1208;
+    --parchment: #f5ead6;
+    --parchment-dark: #e8d5b5;
+    --gold: #b8860b;
+    --gold-light: #d4a820;
+    --rust: #8b3a1a;
+    --sepia: #6b4c2a;
+    --accent: #3b2c1a;
+    --highlight: #f0e0b0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background-color: var(--ink);
+    background-image: radial-gradient(ellipse at 20% 20%, #2a1a0a 0%, transparent 60%), radial-gradient(ellipse at 80% 80%, #1a0a00 0%, transparent 60%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem 4rem;
+    font-family: 'EB Garamond', Georgia, serif;
+  }
+
+  .codex {
+    background: var(--parchment);
+    max-width: 960px;
+    width: 100%;
+    border: 3px solid var(--gold);
+    box-shadow: 0 0 0 8px var(--ink), 0 0 0 10px var(--gold), 0 0 60px rgba(184,134,11,0.3), inset 0 0 40px rgba(107,76,42,0.15);
+    padding: 2.5rem 3rem;
+    position: relative;
+    animation: reveal 1s ease both;
+  }
+  @keyframes reveal { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+  .codex::before,.codex::after,.corner-tr,.corner-bl {
+    content:''; position:absolute; width:38px; height:38px; border:2px solid var(--gold);
+  }
+  .codex::before { top:10px; left:10px; border-right:none; border-bottom:none; }
+  .codex::after  { bottom:10px; right:10px; border-left:none; border-top:none; }
+  .corner-tr { top:10px; right:10px; border-left:none; border-bottom:none; }
+  .corner-bl { bottom:10px; left:10px; border-right:none; border-top:none; }
+
+  /* ── NAV ── */
+  .site-nav {
+    display: flex;
+    gap: 0;
+    margin-bottom: 2rem;
+    border: 1px solid var(--gold);
+    border-radius: 2px;
+    overflow: hidden;
+    width: fit-content;
+  }
+  .nav-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.5rem 1.2rem;
+    background: transparent;
+    border: none;
+    color: var(--sepia);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-right: 1px solid var(--gold);
+  }
+  .nav-btn:last-child { border-right: none; }
+  .nav-btn:hover { background: rgba(184,134,11,0.15); color: var(--accent); }
+  .nav-btn.active { background: var(--accent); color: var(--parchment); }
+
+  /* ── HEADER ── */
+  header { text-align: center; border-bottom: 2px solid var(--gold); padding-bottom: 1.4rem; margin-bottom: 1.8rem; }
+  .title-greek { font-family:'Cinzel Decorative',serif; font-size:0.82rem; color:var(--rust); letter-spacing:0.25em; text-transform:uppercase; margin-bottom:0.4rem; }
+  h1 { font-family:'Cinzel',serif; font-size:1.9rem; color:var(--accent); line-height:1.2; margin-bottom:0.3rem; letter-spacing:0.05em; }
+  .subtitle { font-style:italic; color:var(--sepia); font-size:1rem; margin-bottom:0.8rem; }
+  .intro { font-size:0.87rem; color:var(--sepia); line-height:1.6; max-width:640px; margin:0 auto; }
+  .ornament { text-align:center; color:var(--gold); font-size:1.1rem; margin:0.4rem 0; letter-spacing:0.3em; }
+
+  /* ── PAGE VISIBILITY ── */
+  .page { display: none; }
+  .page.active { display: block; animation: reveal 0.5s ease both; }
+
+  /* ── CONTROLS (CONCORDANCE PAGE) ── */
+  .controls { display:flex; flex-wrap:wrap; gap:0.6rem; margin-bottom:1.6rem; align-items:center; }
+  .search-wrap { flex:1; min-width:180px; position:relative; }
+  .search-wrap input { width:100%; padding:0.5rem 0.8rem 0.5rem 2rem; border:1px solid var(--gold); background:rgba(255,255,255,0.5); font-family:'EB Garamond',serif; font-size:0.9rem; color:var(--ink); border-radius:2px; outline:none; }
+  .search-wrap input:focus { background:white; box-shadow:0 0 0 2px rgba(184,134,11,0.3); }
+  .search-icon { position:absolute; left:0.5rem; top:50%; transform:translateY(-50%); color:var(--gold); font-size:0.8rem; }
+  .filter-group { display:flex; gap:0.4rem; flex-wrap:wrap; }
+  .filter-btn { padding:0.35rem 0.75rem; border:1px solid var(--gold); background:transparent; font-family:'Cinzel',serif; font-size:0.7rem; color:var(--sepia); cursor:pointer; border-radius:2px; letter-spacing:0.05em; transition:all 0.2s; }
+  .filter-btn:hover,.filter-btn.active { background:var(--gold); color:white; border-color:var(--gold); }
+
+  /* ── CONCORDANCE TABLE ── */
+  .concordance-count { font-size:0.8rem; color:var(--sepia); font-style:italic; margin-bottom:0.7rem; }
+  table { width:100%; border-collapse:collapse; font-size:0.87rem; }
+  thead tr { background:var(--accent); color:var(--parchment); }
+  thead th { font-family:'Cinzel',serif; font-weight:600; font-size:0.7rem; letter-spacing:0.08em; text-transform:uppercase; padding:0.55rem 0.7rem; text-align:left; cursor:pointer; user-select:none; white-space:nowrap; }
+  thead th:hover { background:var(--rust); }
+  thead th.sort-asc::after { content:' ↑'; opacity:0.7; }
+  thead th.sort-desc::after { content:' ↓'; opacity:0.7; }
+  tbody tr { border-bottom:1px solid rgba(107,76,42,0.2); transition:background 0.15s; }
+  tbody tr:hover { background:var(--highlight); }
+  td { padding:0.5rem 0.7rem; vertical-align:top; color:var(--ink); line-height:1.5; }
+  td.name { font-family:'Cinzel',serif; font-weight:600; color:var(--rust); font-size:0.88rem; white-space:nowrap; }
+  td.alt { font-style:italic; color:var(--sepia); font-size:0.82rem; }
+  td.tradition span { display:inline-block; padding:0.1rem 0.4rem; border-radius:2px; font-size:0.7rem; font-family:'Cinzel',serif; letter-spacing:0.04em; white-space:nowrap; margin:1px; }
+  .trad-greek{background:#d4e4f7;color:#1a3a6b}
+  .trad-egyptian{background:#f7e8cc;color:#7a4510}
+  .trad-jewish{background:#d8f0d8;color:#1a5a1a}
+  .trad-syncretic{background:#e8d4f0;color:#4a1a6b}
+  .trad-gnostic{background:#f0d4d4;color:#6b1a1a}
+  .trad-voces{background:#ddd;color:#333}
+  .trad-persian{background:#f0e8cc;color:#5a3a00}
+  .trad-angel{background:#d4f0e8;color:#0a4a3a}
+  td.refs { font-size:0.78rem; color:var(--sepia); font-style:italic; }
+  td.refs .ref-tag { display:inline-block; background:rgba(184,134,11,0.12); border:1px solid rgba(184,134,11,0.35); border-radius:2px; padding:0 0.3rem; margin:1px; font-family:'Cinzel',serif; font-style:normal; font-size:0.7rem; color:var(--rust); white-space:nowrap; }
+  td.desc { color:#2a1a0a; max-width:250px; font-size:0.82rem; }
+  .no-results { text-align:center; padding:2rem; color:var(--sepia); font-style:italic; }
+
+  /* ── THEME PAGE ── */
+  .theme-layout { display:grid; grid-template-columns: 240px 1fr; gap:1.5rem; min-height: 500px; }
+
+  .theme-sidebar {
+    border-right: 1px solid rgba(184,134,11,0.3);
+    padding-right: 1.2rem;
+  }
+  .theme-sidebar h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--sepia);
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(184,134,11,0.25);
+  }
+
+  .theme-search-bar {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--gold);
+    background: rgba(255,255,255,0.5);
+    font-family: 'EB Garamond', serif;
+    font-size: 0.85rem;
+    color: var(--ink);
+    border-radius: 2px;
+    outline: none;
+    margin-bottom: 0.7rem;
+  }
+  .theme-search-bar:focus { background: white; }
+
+  .theme-list { list-style: none; max-height: 520px; overflow-y: auto; }
+  .theme-list::-webkit-scrollbar { width: 4px; }
+  .theme-list::-webkit-scrollbar-track { background: rgba(184,134,11,0.1); }
+  .theme-list::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; }
+
+  .theme-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.38rem 0.6rem;
+    cursor: pointer;
+    border-radius: 2px;
+    font-size: 0.88rem;
+    color: var(--sepia);
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+    margin-bottom: 1px;
+  }
+  .theme-item:hover { background: rgba(184,134,11,0.1); color: var(--accent); border-left-color: var(--gold-light); }
+  .theme-item.active { background: var(--accent); color: var(--parchment); border-left-color: var(--gold); }
+  .theme-item .count {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    opacity: 0.6;
+    background: rgba(184,134,11,0.2);
+    padding: 0 0.3rem;
+    border-radius: 2px;
+  }
+  .theme-item.active .count { background: rgba(255,255,255,0.15); opacity: 0.8; }
+
+  /* Results panel */
+  .theme-results { min-width: 0; }
+  .theme-results-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.7rem;
+    border-bottom: 1px solid rgba(184,134,11,0.3);
+  }
+  .theme-results-header h2 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.2rem;
+    color: var(--accent);
+    margin-bottom: 0.2rem;
+  }
+  .theme-results-header .theme-meta {
+    font-size: 0.82rem;
+    color: var(--sepia);
+    font-style: italic;
+  }
+  .theme-results-search {
+    position: relative;
+    margin-bottom: 0.8rem;
+  }
+  .theme-results-search input {
+    width: 100%;
+    padding: 0.4rem 0.7rem 0.4rem 1.8rem;
+    border: 1px solid rgba(184,134,11,0.4);
+    background: rgba(255,255,255,0.5);
+    font-family: 'EB Garamond', serif;
+    font-size: 0.87rem;
+    color: var(--ink);
+    border-radius: 2px;
+    outline: none;
+  }
+  .theme-results-search input:focus { background: white; }
+  .theme-results-search .si { position:absolute; left:0.5rem; top:50%; transform:translateY(-50%); color:var(--gold); font-size:0.75rem; }
+
+  .spell-list { list-style: none; }
+  .spell-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid rgba(107,76,42,0.15);
+    transition: background 0.12s;
+  }
+  .spell-item:hover { background: var(--highlight); }
+  .spell-item .spell-ref {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    color: var(--rust);
+    white-space: nowrap;
+    min-width: 130px;
+    background: rgba(184,134,11,0.1);
+    border: 1px solid rgba(184,134,11,0.25);
+    padding: 0.15rem 0.4rem;
+    border-radius: 2px;
+  }
+  .spell-item .spell-title {
+    font-size: 0.88rem;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .spell-item.hidden { display: none; }
+
+  .theme-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    color: var(--sepia);
+    font-style: italic;
+    font-size: 0.95rem;
+    text-align: center;
+    gap: 0.5rem;
+  }
+  .theme-placeholder .ph-icon { font-size: 2.5rem; opacity: 0.3; }
+
+  /* result count chip */
+  .result-count {
+    display: inline-block;
+    font-family: 'Cinzel', serif;
+    font-size: 0.68rem;
+    background: var(--accent);
+    color: var(--parchment);
+    padding: 0.1rem 0.45rem;
+    border-radius: 2px;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+  }
+
+  footer-note { display:block; margin-top:2rem; padding-top:1rem; border-top:1px solid rgba(107,76,42,0.3); font-size:0.77rem; color:var(--sepia); font-style:italic; line-height:1.6; }
+
+  /* ── RESPONSIVE: TABLET ── */
+  @media(max-width:780px) and (min-width:541px){
+    .codex { padding: 2rem 1.6rem; }
+    td.desc { display: none; }
+  }
+
+  /* ── RESPONSIVE: PORTRAIT MOBILE ── */
+  @media(max-width:540px){
+    body { padding: 0.6rem 0.4rem 3rem; }
+
+    .codex {
+      padding: 1.4rem 0.9rem 1.6rem;
+      border-width: 2px;
+      box-shadow: 0 0 0 4px var(--ink), 0 0 0 6px var(--gold), 0 0 30px rgba(184,134,11,0.2);
+    }
+    /* shrink corner decorations so they don't crowd content */
+    .codex::before,.codex::after,.corner-tr,.corner-bl {
+      width: 22px; height: 22px;
+    }
+
+    /* header */
+    .title-greek { font-size: 0.68rem; letter-spacing: 0.15em; }
+    h1 { font-size: 1.25rem; }
+    .subtitle { font-size: 0.88rem; }
+    .ornament { font-size: 0.9rem; letter-spacing: 0.2em; }
+    .intro { font-size: 0.82rem; }
+
+    /* nav */
+    .site-nav { width: 100%; }
+    .nav-btn { flex: 1; font-size: 0.65rem; padding: 0.5rem 0.4rem; letter-spacing: 0.06em; }
+
+    /* controls */
+    .controls { flex-direction: column; align-items: stretch; gap: 0.5rem; margin-bottom: 1rem; }
+    .search-wrap { min-width: unset; }
+    .search-wrap input { font-size: 0.95rem; padding: 0.55rem 0.8rem 0.55rem 1.9rem; }
+    .filter-group { gap: 0.3rem; }
+    .filter-btn { font-size: 0.65rem; padding: 0.3rem 0.55rem; }
+
+    /* ── CARD LAYOUT for concordance table on mobile ── */
+    #concordanceTable thead { display: none; }
+    #concordanceTable tbody { display: block; }
+
+    #concordanceTable tbody tr {
+      display: block;
+      border: 1px solid rgba(184,134,11,0.35);
+      border-radius: 3px;
+      margin-bottom: 0.7rem;
+      padding: 0.7rem 0.8rem;
+      background: rgba(255,255,255,0.25);
+      border-left: 3px solid var(--gold);
+    }
+    #concordanceTable tbody tr:hover { background: var(--highlight); }
+
+    /* hide the td wrappers' default table behaviour */
+    #concordanceTable td {
+      display: block;
+      padding: 0.18rem 0;
+      border: none;
+      white-space: normal;
+    }
+
+    /* Name — large and prominent */
+    #concordanceTable td.name {
+      font-size: 1rem;
+      margin-bottom: 0.25rem;
+    }
+
+    /* Tradition badges row */
+    #concordanceTable td.tradition {
+      margin-bottom: 0.25rem;
+    }
+
+    /* References */
+    #concordanceTable td.refs {
+      margin-bottom: 0.15rem;
+    }
+    #concordanceTable td.refs .ref-tag {
+      font-size: 0.67rem;
+    }
+
+    /* Alternates — small italic, hidden to save space */
+    #concordanceTable td.alt  { display: none; }
+    /* Notes — hidden on smallest screens */
+    #concordanceTable td.desc { display: none; }
+
+    /* theme page */
+    .theme-layout { grid-template-columns: 1fr; gap: 0; }
+    .theme-sidebar {
+      border-right: none;
+      border-bottom: 1px solid rgba(184,134,11,0.3);
+      padding-right: 0;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+    }
+    .theme-list { max-height: 180px; }
+    .spell-item { flex-direction: column; gap: 0.3rem; }
+    .spell-item .spell-ref { min-width: unset; width: fit-content; }
+
+    footer-note { font-size: 0.72rem; }
+  }
+</style>
+</head>
+<body>
+<div class="codex">
+  <div class="corner-tr"></div><div class="corner-bl"></div>
+
+  <header>
+    <div class="title-greek">Παπύροι Γραικαί Μαγικαί</div>
+    <h1>PGM Concordance</h1>
+    <div class="subtitle">Greek Magical Papyri · 2nd c. BCE – 5th c. CE</div>
+    <div class="ornament">✦ ✦ ✦</div>
+  </header>
+
+  <!-- NAV -->
+  <div>
+    <nav class="site-nav">
+      <button class="nav-btn active" id="nav-concordance" onclick="showPage('concordance')">⚶ Divine Names</button>
+      <button class="nav-btn" id="nav-themes" onclick="showPage('themes')">☽ Theme Search</button>
+    </nav>
+  </div>
+
+  <!-- ═══════════════════════════════════════ PAGE: CONCORDANCE ══ -->
+  <div class="page active" id="page-concordance">
+    <p class="intro" style="margin-bottom:1.2rem;">A reference concordance of deities, divine beings, and sacred names invoked in the <em>PGM</em>, reflecting the syncretic Greco-Egyptian milieu of Roman Egypt.</p>
+
+    <div class="controls">
+      <div class="search-wrap">
+        <span class="search-icon">⚲</span>
+        <input type="text" id="searchInput" placeholder="Search names, epithets, PGM references…" oninput="filterTable()">
+      </div>
+      <div class="filter-group" id="filterBtns">
+        <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn" data-filter="greek" onclick="setFilter('greek',this)">Greek</button>
+        <button class="filter-btn" data-filter="egyptian" onclick="setFilter('egyptian',this)">Egyptian</button>
+        <button class="filter-btn" data-filter="jewish" onclick="setFilter('jewish',this)">Jewish</button>
+        <button class="filter-btn" data-filter="syncretic" onclick="setFilter('syncretic',this)">Syncretic</button>
+        <button class="filter-btn" data-filter="gnostic" onclick="setFilter('gnostic',this)">Gnostic</button>
+        <button class="filter-btn" data-filter="angel" onclick="setFilter('angel',this)">Angels</button>
+        <button class="filter-btn" data-filter="voces" onclick="setFilter('voces',this)">Voces Magicae</button>
+      </div>
+    </div>
+
+    <div class="concordance-count" id="countDisplay"></div>
+
+    <table id="concordanceTable">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0)">Name</th>
+          <th onclick="sortTable(1)">Alternate Forms</th>
+          <th onclick="sortTable(2)">Tradition</th>
+          <th onclick="sortTable(3)">Key PGM References</th>
+          <th onclick="sortTable(4)">Notes</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div id="noResults" class="no-results" style="display:none">No entries match your search.</div>
+
+    <footer-note>
+      <strong>Abbreviations:</strong> PGM = <em>Papyri Graecae Magicae</em>; PDM = <em>Papyri Demoticae Magicae</em>. References follow Preisendanz (1928–31, rev. 1973–74) and Betz, <em>The Greek Magical Papyri in Translation</em> (1986/1992).
+    </footer-note>
+  </div>
+
+  <!-- ═══════════════════════════════════════ PAGE: THEMES ══════ -->
+  <div class="page" id="page-themes">
+    <p class="intro" style="margin-bottom:1.4rem;">Browse the corpus by magical theme. Select a category to view all attested spells and rituals of that type, drawn from the complete PGM and PDM corpus (541 texts, 54 themes).</p>
+
+    <div class="theme-layout">
+      <!-- Sidebar -->
+      <div class="theme-sidebar">
+        <h3>Themes <span id="theme-sidebar-count" style="font-weight:normal;opacity:0.6"></span></h3>
+        <input type="text" class="theme-search-bar" id="themeFilterInput" placeholder="Filter themes…" oninput="filterThemeSidebar()">
+        <ul class="theme-list" id="themeList"></ul>
+      </div>
+
+      <!-- Results -->
+      <div class="theme-results" id="themeResultsPanel">
+        <div class="theme-placeholder" id="themePlaceholder">
+          <div class="ph-icon">☽</div>
+          <div>Select a theme from the left to view matching spells</div>
+        </div>
+        <div id="themeResultsContent" style="display:none">
+          <div class="theme-results-header">
+            <h2 id="themeResultsTitle"></h2>
+            <div class="theme-meta" id="themeResultsMeta"></div>
+          </div>
+          <div class="theme-results-search">
+            <span class="si">⚲</span>
+            <input type="text" id="spellSearchInput" placeholder="Filter spells within this theme…" oninput="filterSpells()">
+          </div>
+          <div id="spellCount" style="font-size:0.78rem;color:var(--sepia);font-style:italic;margin-bottom:0.6rem;"></div>
+          <ul class="spell-list" id="spellList"></ul>
+        </div>
+      </div>
+    </div>
+
+    <footer-note>
+      Theme data drawn from the categorised PGM corpus. A single text may appear under multiple themes. References: Betz (ed.), <em>The Greek Magical Papyri in Translation</em> (Chicago, 1992); Johnson (ed.), <em>Papyri Demoticae Magicae</em>.
+    </footer-note>
+  </div>
+
+</div><!-- /.codex -->
+
+<script>
+// ══════════════════════════════════════════════════════
+// PAGE ROUTING
+// ══════════════════════════════════════════════════════
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.getElementById('nav-' + id).classList.add('active');
+  window.location.hash = id;
+}
+
+// ══════════════════════════════════════════════════════
+// ── PAGE 1: CONCORDANCE ──────────────────────────────
+// ══════════════════════════════════════════════════════
+const ENTRIES = [
+  {name:"Helios",alt:"Hēlios, Sol, Phre, Rê",traditions:["greek","egyptian","syncretic"],refs:["IV.436","IV.1596","III.494","VIII.1","IV.1957"],desc:"Sun god; supreme deity of many PGM spells; identified with Ra/Phre, Mithras, Abrasax."},
+  {name:"Selene",alt:"Mēnē, Luna",traditions:["greek"],refs:["IV.2785","IV.2441","VII.756","XXXVI.283"],desc:"Moon goddess; invoked in lunar rites, love spells, and the great Selene hymn."},
+  {name:"Hekate",alt:"Hecate, Ereschigal, Aktiophis",traditions:["greek","syncretic"],refs:["IV.2441","IV.2785","LXX.4","IV.1399"],desc:"Triple goddess of crossroads and magic; equated with Selene and Artemis."},
+  {name:"Hermes",alt:"Hermes Trismegistos, Thrice-Great Hermes",traditions:["greek","syncretic"],refs:["VIII.1","V.370","IV.2359","XII.144"],desc:"Messenger god; widely equated with Thoth as 'Hermes Trismegistos'; patron of magic."},
+  {name:"Aphrodite",alt:"Kypris, Hathor (Egyptian form)",traditions:["greek","syncretic"],refs:["IV.1265","IV.2900","VII.215","XIX.b"],desc:"Goddess of love; given Egyptian epithet 'Neferihri'; central to erotic spells."},
+  {name:"Ares",alt:"Mars",traditions:["greek"],refs:["IV.1497","XIII.288","VII.939","XXXVI.69"],desc:"War god; invoked in aggressive magic and binding spells."},
+  {name:"Apollo",alt:"Phoibos",traditions:["greek"],refs:["II.64","VI.1","VII.664","I.296"],desc:"Oracular god; invoked in divination and lamp rituals."},
+  {name:"Artemis",alt:"Phoibē",traditions:["greek"],refs:["IV.2522","IV.2785","XXXVI.187"],desc:"Hunting goddess; identified with Selene and Hekate in the triple goddess formula."},
+  {name:"Zeus",alt:"Jupiter",traditions:["greek","syncretic"],refs:["XIII.777","III.263","IV.1599"],desc:"King of the Olympian gods; equated with Iao in some texts."},
+  {name:"Poseidon",alt:"Neptune",traditions:["greek"],refs:["XIII.760","XXXVI.155"],desc:"God of the sea; invoked in maritime and elemental magic."},
+  {name:"Kronos",alt:"Saturnus",traditions:["greek"],refs:["IV.3086","XIII.974"],desc:"Titan father of Zeus; rules Saturday; associated with lead magic and binding."},
+  {name:"Eros",alt:"Amor",traditions:["greek","syncretic"],refs:["IV.1265","XII.14","IV.2900"],desc:"God of love and desire; identified with the paredros in some texts."},
+  {name:"Persephone",alt:"Persephonē, Kore",traditions:["greek"],refs:["IV.1401","IV.335","VII.318"],desc:"Queen of the underworld; invoked in necromantic and katadesmoi spells."},
+  {name:"Hades",alt:"Pluto, Plouton",traditions:["greek"],refs:["IV.336","IV.1464","VII.319"],desc:"Lord of the dead; associated with underworld magic and curses."},
+  {name:"Aion",alt:"Aiōn",traditions:["greek","syncretic","gnostic"],refs:["IV.1167","XII.264","XIII.62"],desc:"God of eternal time; supreme cosmic deity; identified with Helios and Osiris."},
+  {name:"Nemesis",alt:"",traditions:["greek"],refs:["IV.3209","V.231"],desc:"Goddess of divine retribution; invoked in justice spells."},
+  {name:"Ananke",alt:"Anankē",traditions:["greek"],refs:["IV.407","XII.252"],desc:"Goddess of necessity and fate; personification of compulsion."},
+  {name:"Agathos Daimon",alt:"Good Daimon, Agathodaimon",traditions:["greek","syncretic"],refs:["VII.505","III.612","IV.1599"],desc:"The Good Spirit; personal divine guardian; equated with Helios and the Nile serpent."},
+  {name:"Phanes",alt:"Phainōn",traditions:["greek","syncretic","gnostic"],refs:["IV.500","XIII.468"],desc:"Orphic primordial deity of light; associated with the Mithras Liturgy."},
+  {name:"Hermes Chthonios",alt:"Chthonic Hermes",traditions:["greek"],refs:["IV.1462","V.400"],desc:"Underworld aspect of Hermes; guide of souls; invoked in necromancy."},
+  {name:"Osiris",alt:"Wsir, Osoronnophris",traditions:["egyptian","syncretic"],refs:["IV.1462","VII.643","III.1","XIII.143"],desc:"Lord of the dead and resurrection; 'Osoronnophris' appears in the Bornless Ritual."},
+  {name:"Isis",alt:"Ēsis",traditions:["egyptian","syncretic"],refs:["IV.94","VII.490","XXXVI.134"],desc:"Great mother goddess; goddess of magic (heka); syncretized with Aphrodite and Selene."},
+  {name:"Thoth",alt:"Thōouth, Djehuti",traditions:["egyptian","syncretic"],refs:["V.370","VIII.1","LXXIX.1"],desc:"God of writing and wisdom; identified with Hermes Trismegistos."},
+  {name:"Ra / Phre",alt:"Rê, Phre, Amun-Ra",traditions:["egyptian","syncretic"],refs:["PDM XIV.475","XIII.343","IV.1600"],desc:"Egyptian sun god; 'Phre' is the Demotic form; equated with Helios and Mithras."},
+  {name:"Anubis",alt:"Anoubis, Anpu",traditions:["egyptian","syncretic"],refs:["VIII.1","IV.1462","II.29"],desc:"Jackal-headed god of embalming; psychopomp; identified with Hermes as Anubis-Hermes."},
+  {name:"Horus",alt:"Hōros, Harpocrates",traditions:["egyptian"],refs:["VII.550","I.145","IV.89"],desc:"Falcon-headed sky god; child Horus (Harpocrates) invoked for protection."},
+  {name:"Seth / Typhon",alt:"Typhōn, Typhos, Set",traditions:["egyptian","greek","syncretic"],refs:["IV.261","XXXVI.69","V.158"],desc:"God of chaos and storms; Typhon is the Greek equivalent; invoked for compulsion magic."},
+  {name:"Bes",alt:"Bēs",traditions:["egyptian","syncretic"],refs:["VII.222","VIII.64","XXXVI.178"],desc:"Dwarf deity of protection and dreams; invoked in dream-sending and protective amulets."},
+  {name:"Sarapis",alt:"Serapis",traditions:["egyptian","greek","syncretic"],refs:["IV.1462","XIII.968","XI.a"],desc:"Ptolemaic syncretic deity combining Osiris and Apis bull; lord of the dead and healing."},
+  {name:"Khnum",alt:"Knouphis, Chnouphis",traditions:["egyptian"],refs:["XII.201","IV.3125"],desc:"Ram-headed creator god; associated with the Nile and gemstone magic."},
+  {name:"Ptah",alt:"Phtha",traditions:["egyptian"],refs:["XII.201","IV.157"],desc:"Memphite creator god; associated with craftsmanship and divine speech."},
+  {name:"Nephthys",alt:"Nephtho",traditions:["egyptian"],refs:["IV.93","XIII.150"],desc:"Sister of Isis; mourning goddess and protective deity."},
+  {name:"Hathor",alt:"Athor",traditions:["egyptian","syncretic"],refs:["IV.1265","VII.215"],desc:"Goddess of love, music, and beauty; equated with Aphrodite."},
+  {name:"Amun",alt:"Amon, Ammon",traditions:["egyptian","syncretic"],refs:["XIII.343","IV.1600"],desc:"Hidden god; supreme deity of Thebes; syncretized with Ra as Amun-Ra."},
+  {name:"Osoronnophris",alt:"Wsir Wn-nfr, Beautiful Osiris",traditions:["egyptian","syncretic"],refs:["V.123","IV.1478"],desc:"Egyptian epithet meaning 'Osiris the Perfect Being'; used in the Bornless Ritual."},
+  {name:"Iao",alt:"Iaō, Iao Sabaoth",traditions:["jewish","syncretic"],refs:["IV.1577","V.481","VII.400","XXXVI.42","XIII.1"],desc:"Greek vocalization of YHWH; the most frequently invoked divine name in the PGM."},
+  {name:"Sabaoth",alt:"Sabaōth, Iao Sabaoth",traditions:["jewish","syncretic"],refs:["V.481","VII.311","XXXVI.42","XLIII.13"],desc:"Lord of Hosts; Hebrew title Tzevaot; often paired with Iao and Adonai."},
+  {name:"Adonai",alt:"Adōnai, Adoneai",traditions:["jewish","syncretic"],refs:["IV.1577","VII.311","XXXVI.42","V.481"],desc:"Hebrew 'Lord'; substitute for YHWH; one of the most common Jewish names in the PGM."},
+  {name:"Eloai",alt:"Eloai, Eloe, Elohim",traditions:["jewish"],refs:["V.481","XXXVI.42","XLIII.13"],desc:"Hebrew 'God'; frequently combined with Iao and Sabaoth."},
+  {name:"Iao Sabaoth Adonai",alt:"Triple formula",traditions:["jewish","syncretic"],refs:["IV.1577","VII.626","XXXVI.42"],desc:"Standard triple invocation; extremely common in PGM amulets and phylacteries."},
+  {name:"Abraham",alt:"Abraam",traditions:["jewish"],refs:["VII.315","VII.481","V.481"],desc:"Patriarch invoked as divine figure; 'God of Abraham' formula used in Jewish-influenced spells."},
+  {name:"Moses",alt:"Mōsēs",traditions:["jewish","syncretic"],refs:["XIII.970","VII.619","V.108"],desc:"Hebrew prophet; the PGM attributes magical books to Moses ('Eighth Book of Moses')."},
+  {name:"Adam",alt:"Adam (protanthropos)",traditions:["jewish"],refs:["III.146"],desc:"First man invoked as a semi-divine figure in cosmogonic spells."},
+  {name:"Abrasax",alt:"Abraxas",traditions:["gnostic","syncretic","voces"],refs:["VIII.1","IV.86","LXXIX.1","XIII.1","XII.205"],desc:"Great Archon whose name equals 365 numerologically; identified with Helios, Thoth, and Mithras."},
+  {name:"Mithras",alt:"Mithras, Meithras",traditions:["persian","syncretic"],refs:["IV.480","IV.519"],desc:"Persian solar deity; identified with Helios in the Mithras Liturgy (PGM IV.475–834)."},
+  {name:"Hermes-Thoth",alt:"Hermes Trismegistos",traditions:["syncretic"],refs:["VIII.1","V.370","LXXIX.1"],desc:"Explicit identification of Greek Hermes with Egyptian Thoth."},
+  {name:"Typhon-Seth",alt:"Typhōn-Set",traditions:["syncretic","egyptian","greek"],refs:["IV.261","XXXVI.69","V.158"],desc:"Identification of Greek Typhon with Egyptian Seth; deity of compulsion magic."},
+  {name:"Hekate-Selene-Artemis",alt:"Triple Hekate",traditions:["syncretic","greek"],refs:["IV.2441","IV.2785","LXX.4"],desc:"Triple goddess formula identifying Hekate, Selene, and Artemis as one deity."},
+  {name:"Aktiophis",alt:"Aktiophi, Ereschigal",traditions:["gnostic","syncretic"],refs:["LXX.4","IV.1411"],desc:"Underworld deity associated with Hekate-Ereschigal; invoked in lunar magic."},
+  {name:"Ereschigal",alt:"Ereshkigal",traditions:["gnostic","syncretic"],refs:["LXX.11","IV.1413"],desc:"Mesopotamian queen of the underworld syncretized with Hekate in some PGM spells."},
+  {name:"Michael",alt:"Michaēl",traditions:["angel","jewish"],refs:["I.301","III.148","VII.609","LXXIX.1"],desc:"Chief archangel; invoked for protection and power alongside YHWH-based names."},
+  {name:"Gabriel",alt:"Gabriēl",traditions:["angel","jewish"],refs:["XLIII.23","VII.1018"],desc:"Archangel of revelation; paired with Michael in protective formulae."},
+  {name:"Raphael",alt:"Raphaēl",traditions:["angel","jewish"],refs:["XXXV.3","III.212"],desc:"Healing archangel; invoked in healing and protective spells."},
+  {name:"Ouriel",alt:"Uriel",traditions:["angel","jewish"],refs:["LXII.43"],desc:"Archangel of wisdom and light."},
+  {name:"Ablanathanalba",alt:"Palindrome: 'Thou art our Father'",traditions:["voces","syncretic"],refs:["VII.643","VII.311","V.481","XII.62"],desc:"Palindromic voce magica; likely Aramaic 'Thou art our Father'; extremely common in phylacteries."},
+  {name:"Akrammachamarei",alt:"Akramachamari",traditions:["voces"],refs:["VII.311","XII.62","VII.643"],desc:"Powerful barbarous name; commonly paired with Ablanathanalba in standard formulae."},
+  {name:"Sesengenbarpharanges",alt:"",traditions:["voces"],refs:["IV.3007","VII.311","XIII.943"],desc:"One of the most widely attested voces magicae; of Egyptian origin."},
+  {name:"Maskelli-Maskelō",alt:"Maskelli Maskellō",traditions:["voces"],refs:["IV.2334","VII.417","XXXVI.1"],desc:"Common formula opening binding and aggressive spells; meaning unknown."},
+  {name:"AEEIOUO",alt:"Seven vowels",traditions:["voces","syncretic"],refs:["XIII.824","II.126","IV.3084"],desc:"The seven Greek vowels as sacred sequence corresponding to the seven planets."},
+  {name:"Harponknouphi",alt:"Harpoon-Knoubi",traditions:["voces","egyptian"],refs:["IV.1201","XII.201"],desc:"Horus-Khnum compound divine name formula; used in gem magic and invocations."},
+  {name:"Bainchoooch",alt:"Bainchôôch",traditions:["voces"],refs:["IV.1004","VII.311"],desc:"Voce magica of uncertain origin; appears frequently in phylactery formulae."},
+];
+
+let currentFilter='all', currentSort={col:0,dir:'asc'};
+
+function buildBadge(t){
+  const map={greek:['trad-greek','Greek'],egyptian:['trad-egyptian','Egyptian'],jewish:['trad-jewish','Jewish'],syncretic:['trad-syncretic','Syncretic'],gnostic:['trad-gnostic','Gnostic'],voces:['trad-voces','Voces'],persian:['trad-persian','Persian'],angel:['trad-angel','Angel']};
+  const[cls,label]=map[t]||['trad-voces',t];
+  return`<span class="${cls}">${label}</span>`;
+}
+
+function buildRefTags(refs){
+  return refs.map(r=>`<span class="ref-tag">PGM ${r}</span>`).join(' ');
+}
+
+function renderTable(){
+  const query=document.getElementById('searchInput').value.toLowerCase();
+  const tbody=document.getElementById('tableBody');
+  let data=[...ENTRIES];
+  if(currentFilter!=='all') data=data.filter(e=>e.traditions.includes(currentFilter));
+  if(query) data=data.filter(e=>e.name.toLowerCase().includes(query)||e.alt.toLowerCase().includes(query)||e.desc.toLowerCase().includes(query)||e.refs.some(r=>r.toLowerCase().includes(query)));
+  data.sort((a,b)=>{
+    let va,vb;
+    if(currentSort.col===0){va=a.name;vb=b.name;}
+    else if(currentSort.col===1){va=a.alt;vb=b.alt;}
+    else if(currentSort.col===2){va=a.traditions[0];vb=b.traditions[0];}
+    else if(currentSort.col===3){va=a.refs[0]||'';vb=b.refs[0]||'';}
+    else{va=a.desc;vb=b.desc;}
+    return currentSort.dir==='asc'?va.localeCompare(vb):vb.localeCompare(va);
+  });
+  document.getElementById('countDisplay').textContent=`Showing ${data.length} of ${ENTRIES.length} entries`;
+  if(!data.length){document.getElementById('noResults').style.display='block';tbody.innerHTML='';return;}
+  document.getElementById('noResults').style.display='none';
+  tbody.innerHTML=data.map(e=>`<tr><td class="name">${e.name}</td><td class="alt">${e.alt||'—'}</td><td class="tradition">${e.traditions.map(buildBadge).join('')}</td><td class="refs">${buildRefTags(e.refs)}</td><td class="desc">${e.desc}</td></tr>`).join('');
+}
+
+function filterTable(){renderTable();}
+
+function setFilter(f,btn){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function sortTable(col){
+  const ths=document.querySelectorAll('thead th');
+  ths.forEach(th=>{th.classList.remove('sort-asc','sort-desc');});
+  if(currentSort.col===col){currentSort.dir=currentSort.dir==='asc'?'desc':'asc';}
+  else{currentSort.col=col;currentSort.dir='asc';}
+  ths[col].classList.add('sort-'+currentSort.dir);
+  renderTable();
+}
+
+// ══════════════════════════════════════════════════════
+// ── PAGE 2: THEME SEARCH ─────────────────────────────
+// ══════════════════════════════════════════════════════
+const PGM_DATA = {"Acquisition":[{"id":2,"ref":"PGM I. 1–42","title":"[Rite] for acquiring an assistant daimon"},{"id":3,"ref":"PGM I. 42–195","title":"The spell of Pnouthis (for acquiring an assistant daimon)"},{"id":392,"ref":"PGM LVII. 1–37","title":"(No title) Rite to acquire an assistant daimon (?)"}],"Alchemy":[{"id":199,"ref":"PGM XII. 193–201","title":"[To make] a tincture of gold"}],"Amulet":[{"id":32,"ref":"PGM IV. 86–87","title":"Phylactery against daimons"},{"id":88,"ref":"PGM V. 213–303","title":"Hermes' ring"},{"id":91,"ref":"PGM V. 447–58","title":"(No title) Instruction concerning a magical ring"},{"id":113,"ref":"PGM VII. 218–21","title":"Phylactery for daily fever with shivering fits"},{"id":122,"ref":"PGM VII. 311–16","title":"Phylactery"},{"id":123,"ref":"PGM VII. 317–18","title":"Another phylactery"},{"id":149,"ref":"PGM VII. 579–90","title":"Phylactery"},{"id":153,"ref":"PGM VII. 628–42","title":"(No title) Rite involving a magical ring"},{"id":186,"ref":"PDM xii 6–20","title":"A ring to cause praise"},{"id":200,"ref":"PGM XII. 201–69","title":"A ring"},{"id":201,"ref":"PGM XII. 270–350","title":"A little ring for success and favor and victory"},{"id":289,"ref":"PDM xiv. 1003–14","title":"(No title) Amulet for gout"},{"id":322,"ref":"PGM XVIIc. 1–14","title":"(No title) Amulet"},{"id":323,"ref":"PGM XVIIIa. 1–4","title":"(No title) Amulet for headache"},{"id":324,"ref":"PGM XVIIIb. 1–7","title":"(No title) Fever amulet"},{"id":339,"ref":"PGM XXVa–d","title":"(No title) Amulets (?)"},{"id":350,"ref":"PGM XXXIII. 1–25","title":"(No title) Fever amulet"},{"id":376,"ref":"PGM XLI. 1–9","title":"(No title) Amulet (?)"},{"id":377,"ref":"PGM XLII. 1–10","title":"(No title) Amulet (?)"},{"id":378,"ref":"PGM XLIII. 1–27","title":"(No title) Amulet against fever"},{"id":379,"ref":"PGM XLIV. 1–18","title":"(No title) Amulet against fever (?)"},{"id":380,"ref":"PGM XLV. 1–8","title":"(No title) Amulet (?)"},{"id":383,"ref":"PGM XLVII. 1–17","title":"(No title) Amulet against fever"},{"id":384,"ref":"PGM XLVIII. 1–21","title":"(No title) Amulet (?)"},{"id":385,"ref":"PGM XLIX","title":"(No title) Amulet"},{"id":395,"ref":"PGM LIX. 1–15","title":"(No title) Phylactery"},{"id":396,"ref":"PGM LX. 1–5","title":"(No title) Amulet"},{"id":434,"ref":"PGM LXXI. 1–8","title":"Phylactery"},{"id":446,"ref":"PGM LXXXVI. 1–2","title":"(No title) Amulet"},{"id":448,"ref":"PGM LXXXVII. 1–11","title":"(No title) Fever amulet"},{"id":449,"ref":"PGM LXXXVIII. 1–19","title":"(No title) Fever amulet"},{"id":450,"ref":"PGM LXXXIX. 1–27","title":"(No title) Phylactery for fever, phantoms, daimons, etc."},{"id":451,"ref":"PGM XC. 1–13","title":"(No title) Rite or phylactery"},{"id":453,"ref":"PGM XCI. 1–14","title":"(No title) Fever amulet (?)"},{"id":460,"ref":"PGM XCIV. 10–16","title":"A phylactery for [fever]"},{"id":469,"ref":"PGM XCVI. 1–8","title":"(No title) Amulet"},{"id":474,"ref":"PGM XCVIII. 1–7","title":"(No title) Amulet"},{"id":475,"ref":"PGM XCIX. 1–3","title":"(No title) Amulet"},{"id":476,"ref":"PGM C. 1–7","title":"(No title) Amulet"},{"id":480,"ref":"PGM CIV. 1–8","title":"(No title) Amulet for fever with shivering fits"},{"id":482,"ref":"PGM CVI. 1–10","title":"(No title) Amulet for fever with shivering fits"},{"id":488,"ref":"PGM CXII. 1–15","title":"(No title) Amulet for scorpion sting"},{"id":489,"ref":"PGM CXIII. 1–4","title":"(No title) Amulet for scorpion sting"},{"id":490,"ref":"PGM CXIV. 1–14","title":"(No title) Amulet for attacks by daimons and for epilepsy"},{"id":491,"ref":"PGM CXV. 1–7","title":"(No title) Amulet for fever with shivering fits"},{"id":501,"ref":"PGM CXX. 1–13","title":"(No title) Amulet (for inflammation of the uvula?)"},{"id":502,"ref":"PGM CXXI. 1–14","title":"(No title) Phylactery for a variety of evils"},{"id":525,"ref":"PGM CXXVIII. 1–12","title":"Phylactery for fever"}],"Animal Magic":[{"id":13,"ref":"PGM III. 1–164","title":"(No title) Cat ritual for many purposes"},{"id":53,"ref":"PGM IV. 1275–1322","title":"Bear charm"},{"id":54,"ref":"PGM IV. 1323–30","title":"Another (Bear charm)"},{"id":55,"ref":"PGM IV. 1331–89","title":"Bear charm"},{"id":128,"ref":"PGM VII. 370–73","title":"(Spell) against every wild animal"},{"id":158,"ref":"PGM VII. 686–702","title":"Bear charm"},{"id":198,"ref":"PGM XII. 190–92","title":"Request for a dream oracle spoken to the Bear"},{"id":407,"ref":"PDM lxi. 106–11","title":"Prescription for a donkey not moving"},{"id":435,"ref":"PGM LXXII. 1–36","title":"[Rite concerning the Bear]"},{"id":467,"ref":"PGM XCV. 7–13","title":"Concerning the mole-[rat]"}],"Astrology":[{"id":17,"ref":"PGM III. 275–81","title":"[Horoscope]"},{"id":46,"ref":"PGM IV. 835–49","title":"(No title) Astrological text"},{"id":98,"ref":"PGM VII. 155–67","title":"Days and hours for divination"},{"id":118,"ref":"PGM VII. 272–83","title":"(No title) Astrological calendar"},{"id":119,"ref":"PGM VII. 284–99","title":"Orbit of the moon (horoscope)"},{"id":416,"ref":"PGM LXII. 52–75","title":"(No title) Horoscope"},{"id":486,"ref":"PGM CX. 1–12","title":"(No title) Horoscope"}],"Attraction":[{"id":34,"ref":"PGM IV. 94–153","title":"(No title) Love spell of attraction"},{"id":56,"ref":"PGM IV. 1390–1495","title":"Love spell of attraction"},{"id":57,"ref":"PGM IV. 1496–1595","title":"Love spell of attraction"},{"id":60,"ref":"PGM IV. 1872–1927","title":"(No title) Fetching charm"},{"id":61,"ref":"PGM IV. 1928–2005","title":"King Pitys' spell of attraction"},{"id":62,"ref":"PGM IV. 2006–2125","title":"Pitys' spell of attraction"},{"id":69,"ref":"PGM IV. 2441–2621","title":"Love spell of attraction"},{"id":71,"ref":"PGM IV. 2708–84","title":"Love spell of attraction"},{"id":73,"ref":"PGM IV. 2891–2942","title":"Love spell of attraction"},{"id":74,"ref":"PGM IV. 2943–66","title":"Love spell of attraction"},{"id":121,"ref":"PGM VII. 300a–310","title":"Love charm"},{"id":131,"ref":"PGM VII. 385–89","title":"Cup spell (love spell)"},{"id":141,"ref":"PGM VII. 459–61","title":"Love charm"},{"id":142,"ref":"PGM VII. 462–66","title":"Love charm"},{"id":143,"ref":"PGM VII. 467–77","title":"(No title) Love spell of attraction"},{"id":151,"ref":"PGM VII. 593–619","title":"Fetching charm"},{"id":154,"ref":"PGM VII. 643–51","title":"Cup spell (love spell)"},{"id":170,"ref":"PGM VII. 973–80","title":"Love spell of attraction . . ."},{"id":171,"ref":"PGM VII. 981–93","title":"[Love spell of attraction]"},{"id":210,"ref":"PDM xii. 108–18 / [PGM XII. 466–68]","title":"A spell for it (fetching spell?)"},{"id":211,"ref":"PDM xii. 119–34 / [PGM XII. 469–73]","title":"(No title) Love spell of attraction"},{"id":212,"ref":"PDM xii. 135–46 / [PGM XII. 474–79]","title":"Another (love spell of attraction)"},{"id":301,"ref":"PDM xiv. 1090–96","title":"(No title) Fetching spell"},{"id":320,"ref":"PGM XVIIa. 1–25","title":"(No title) Love spell of attraction"},{"id":325,"ref":"PGM XIXa. 1–54","title":"(No title) Love spell of attraction"},{"id":326,"ref":"PGM XIXb. 1–3","title":"(No title) Love spell of attraction"},{"id":327,"ref":"PGM XIXb. 4–18","title":"Love spell of attraction"},{"id":348,"ref":"PGM XXXII. 1–19","title":"(No title) Love spell of attraction"},{"id":349,"ref":"PGM XXXIIa. 1–25","title":"(No title) Love spell of attraction"},{"id":355,"ref":"PGM XXXVI. 69–101","title":"Love spell of attraction"},{"id":357,"ref":"PGM XXXVI. 134–60","title":"Love spell of attraction"},{"id":360,"ref":"PGM XXXVI. 187–210","title":"Love spell of attraction"},{"id":367,"ref":"PGM XXXVI. 295–311","title":"Love spell of attraction"},{"id":370,"ref":"PGM XXXVI. 333–60","title":"Love spell of attraction"},{"id":371,"ref":"PGM XXXVI. 361–71","title":"Love spell of attraction"},{"id":373,"ref":"PGM XXXVIII. 1–26","title":"(No title) Love spell of attraction"},{"id":374,"ref":"PGM XXXIX. 1–21","title":"(No title) Love spell of attraction"},{"id":411,"ref":"PDM lxi. 159–96 / [PGM LXI. 1–38]","title":"Love charm"},{"id":412,"ref":"PDM lxi. 197–216 / [PGM LXI. 39–71]","title":"Love spell of attraction"},{"id":413,"ref":"PGM LXII. 1–24","title":"(No title) Love spell of attraction"},{"id":438,"ref":"PGM LXXVIII. 1–14","title":"(No title) Love spell of attraction"},{"id":444,"ref":"PGM LXXXIV. 1–21","title":"(No title) Fetching charm"},{"id":477,"ref":"PGM CI. 1–53","title":"(No title) Fetching charm"},{"id":479,"ref":"PGM CIII. 1–18","title":"(No title) Fetching charm"},{"id":483,"ref":"PGM CVII. 1–19","title":"(No title) Fetching charm"},{"id":484,"ref":"PGM CVIII. 1–12","title":"(No title) Fetching charm"},{"id":493,"ref":"PGM CXVII. Fr. 1–23","title":"(No title) Fetching charm"},{"id":497,"ref":"PGM CXIXa. 4–6","title":"Fetching charm"},{"id":505,"ref":"PGM CXXII. 26–50","title":"(No title) Love spell (fetching charm?)"}],"Binding":[{"id":37,"ref":"PGM IV. 296–466","title":"Wondrous spell for binding a lover"},{"id":59,"ref":"PGM IV. 1716–1870","title":"Sword of Dardanos (love spell)"},{"id":63,"ref":"PGM IV. 2125–39","title":"A restraining seal"},{"id":89,"ref":"PGM V. 304–69","title":"(No title) Defixio"},{"id":101,"ref":"PGM VII. 191–92","title":"Spell for binding a lover"},{"id":133,"ref":"PGM VII. 394–95","title":"Coercive spell for restraining"},{"id":134,"ref":"PGM VII. 396–404","title":"Spell for silencing, subjecting, and restraining"},{"id":138,"ref":"PGM VII. 417–22","title":"Restraining spell"},{"id":140,"ref":"PGM VII. 429–58","title":"Restraining spell"},{"id":167,"ref":"PGM VII. 925–39","title":"Another, charm to subject"},{"id":175,"ref":"PGM VIII. 1–63","title":"Binding love spell of Astrapsoukos"},{"id":177,"ref":"PGM IX. 1–14","title":"(No title) Spell to subject and silence"},{"id":195,"ref":"PGM XII. 160–78","title":"(No title) Spell to release from bonds"},{"id":318,"ref":"PGM XV. 1–21","title":"(No title) Charm to bind a lover"},{"id":319,"ref":"PGM XVI. 1–75","title":"(No title) Charm to bind a lover"},{"id":353,"ref":"PGM XXXVI. 1–34","title":"Charm to restrain"},{"id":366,"ref":"PGM XXXVI. 283–94","title":"Pudenda key spell"},{"id":382,"ref":"PGM XLVI. 4–8","title":"Spell to silence and subject"},{"id":466,"ref":"PGM XCV. 1–6","title":"(No title) Spell for subjugation"},{"id":498,"ref":"PGM CXIXa. 7–11","title":"Charm to subject"},{"id":537,"ref":"PDM Supplement 138–49","title":"Spell for . . . (subjection?)"}],"Charm":[{"id":53,"ref":"PGM IV. 1275–1322","title":"Bear charm"},{"id":54,"ref":"PGM IV. 1323–30","title":"Another (Bear charm)"},{"id":55,"ref":"PGM IV. 1331–89","title":"Bear charm"},{"id":158,"ref":"PGM VII. 686–702","title":"Bear charm"}],"Cognitive":[{"id":6,"ref":"PGM I. 232–47","title":"Memory spell"},{"id":19,"ref":"PGM III. 410–23","title":"(No title) Memory spell"},{"id":20,"ref":"PGM III. 424–66","title":"A copy from a holy book (spell for foreknowledge and memory)"},{"id":21,"ref":"PGM III. 467–78","title":"Memory spell"}],"Compulsion":[{"id":60,"ref":"PGM IV. 1872–1927","title":"(No title) Fetching charm"},{"id":133,"ref":"PGM VII. 394–95","title":"Coercive spell for restraining"},{"id":134,"ref":"PGM VII. 396–404","title":"Spell for silencing, subjecting, and restraining"},{"id":137,"ref":"PGM VII. 411–16","title":"Spell for causing talk while asleep"},{"id":151,"ref":"PGM VII. 593–619","title":"Fetching charm"},{"id":167,"ref":"PGM VII. 925–39","title":"Another, charm to subject"},{"id":168,"ref":"PGM VII. 940–68","title":"Charm to restrain anger and to subject"},{"id":177,"ref":"PGM IX. 1–14","title":"(No title) Spell to subject and silence"},{"id":180,"ref":"PGM X. 36–50","title":"Apollo's charm to subject"},{"id":210,"ref":"PDM xii. 108–18 / [PGM XII. 466–68]","title":"A spell for it (fetching spell?)"},{"id":301,"ref":"PDM xiv. 1090–96","title":"(No title) Fetching spell"},{"id":310,"ref":"PDM xiv. 1182–87","title":"(No title) Spell to cause madness"},{"id":382,"ref":"PGM XLVI. 4–8","title":"Spell to silence and subject"},{"id":419,"ref":"PGM LXIII. 7–12","title":"[Spell to make a woman] confess the name of the man she loves"},{"id":444,"ref":"PGM LXXXIV. 1–21","title":"(No title) Fetching charm"},{"id":466,"ref":"PGM XCV. 1–6","title":"(No title) Spell for subjugation"},{"id":477,"ref":"PGM CI. 1–53","title":"(No title) Fetching charm"},{"id":479,"ref":"PGM CIII. 1–18","title":"(No title) Fetching charm"},{"id":483,"ref":"PGM CVII. 1–19","title":"(No title) Fetching charm"},{"id":484,"ref":"PGM CVIII. 1–12","title":"(No title) Fetching charm"},{"id":493,"ref":"PGM CXVII. Fr. 1–23","title":"(No title) Fetching charm"},{"id":497,"ref":"PGM CXIXa. 4–6","title":"Fetching charm"},{"id":498,"ref":"PGM CXIXa. 7–11","title":"Charm to subject"},{"id":537,"ref":"PDM Supplement 138–49","title":"Spell for . . . (subjection?)"}],"Concealment":[{"id":5,"ref":"PGM I. 222–31","title":"Invisibility spell"},{"id":7,"ref":"PGM I. 247–62","title":"Spell for invisibility"},{"id":152,"ref":"PGM VII. 619–27","title":"From the Diadem of Moses (spells for invisibility and love)"}],"Consecration":[{"id":58,"ref":"PGM IV. 1596–1715","title":"Consecration for all purposes"}],"Correspondence":[{"id":35,"ref":"PGM IV. 154–285","title":"Nephotes to Psammetichos (letter concerning bowl divination)"}],"Counter-Magic":[{"id":359,"ref":"PGM XXXVI. 178–87","title":"Charm to break spells"},{"id":363,"ref":"PGM XXXVI. 256–64","title":"(No title) Charm to break enchantment"},{"id":433,"ref":"PGM LXX. 26–51","title":"Against fear and to dissolve spells"}],"Curse":[{"id":70,"ref":"PGM IV. 2622–2707","title":"Slander spell to Selene"},{"id":81,"ref":"PGM IV. 3255–74","title":"(No title) Spell to induce insomnia"},{"id":89,"ref":"PGM V. 304–69","title":"(No title) Defixio"},{"id":129,"ref":"PGM VII. 374–76","title":"Charm to induce insomnia"},{"id":130,"ref":"PGM VII. 376–84","title":"Another (charm to induce insomnia)"},{"id":134,"ref":"PGM VII. 396–404","title":"Spell for silencing, subjecting, and restraining"},{"id":155,"ref":"PGM VII. 652–60","title":"Spell to induce insomnia"},{"id":203,"ref":"PGM XII. 365–75","title":"Charm for causing separation"},{"id":204,"ref":"PGM XII. 376–96","title":"Charm to induce insomnia"},{"id":207,"ref":"PDM xii. 50–61 / [PGM XII. 445–48]","title":"Spell for separating one person from another"},{"id":208,"ref":"PDM xii. 62–75 / [PGM XII. 449–52]","title":"Another (spell for separation)"},{"id":209,"ref":"PDM xii. 76–107 / [PGM XII. 453–65]","title":"A spell [to] cause a woman to hate a man"},{"id":250,"ref":"PDM xiv. 670–74","title":"A spell (to cause \"evil sleep\") / [PGM XIVc. 16–27]"},{"id":254,"ref":"PDM xiv. 706–10","title":"Prescription (to cause \"evil sleep\")"},{"id":255,"ref":"PDM xiv. 711–15","title":"Another (spell to cause \"evil sleep\")"},{"id":256,"ref":"PDM xiv. 716–24","title":"Another (spell to cause \"evil sleep\")"},{"id":257,"ref":"PDM xiv. 724–26","title":"Another (spell to cause \"evil sleep\")"},{"id":258,"ref":"PDM xiv. 727–36","title":"A prescription (three prescriptions to cause \"evil sleep\")"},{"id":259,"ref":"PDM xiv. 737–38","title":"A prescription (to cause \"evil sleep\")"},{"id":260,"ref":"PDM xiv. 739–40","title":"Another (spell to cause \"evil sleep\")"},{"id":261,"ref":"PDM xiv. 741","title":"Another (spell to cause \"evil sleep\")"},{"id":262,"ref":"PDM xiv. 742","title":"Another (spell to cause \"evil sleep\")"},{"id":263,"ref":"PDM xiv. 743–49","title":"Another (spell to cause \"evil sleep\")"},{"id":273,"ref":"PDM xiv. 912–16","title":"(No title) Spell to cause \"evil sleep\""},{"id":274,"ref":"PDM xiv. 917–19","title":"Prescription (to cause \"evil sleep\")"},{"id":310,"ref":"PDM xiv. 1182–87","title":"(No title) Spell to cause madness"},{"id":362,"ref":"PGM XXXVI. 231–55","title":"(No title) Charm to inflict harm"},{"id":375,"ref":"PGM XL. 1–18","title":"(No title) Curse"},{"id":387,"ref":"PGM LI. 1–27","title":"(No title) Charm to inflict harm"},{"id":390,"ref":"PGM LII. 20–26","title":"Spell to induce insomnia"},{"id":393,"ref":"PGM LVIII. 1–14","title":"(No title) Spell to inflict harm"},{"id":417,"ref":"PGM LXII. 76–106","title":"(No title) Spell (or two spells), to inflict harm (?)"},{"id":424,"ref":"PGM LXIV. 1–12","title":"(No title) Charm to inflict harm"},{"id":427,"ref":"PGM LXVI. 1–11","title":"(No title) Charm to cause separation"},{"id":518,"ref":"PGM CXXIIIf","title":"(No title) Charm to inflict harm (?)"},{"id":519,"ref":"PGM CXXIV. 1–5","title":"Charm to inflict harm"},{"id":521,"ref":"PGM CXXVa–f","title":"(No title) Spell to cause separation"},{"id":522,"ref":"PGM CXXVIa. 1–21","title":"(No title) Spell to cause separation"},{"id":523,"ref":"PGM CXXVIb. 1–17","title":"(No title) Spell to cause separation"}],"Deity Work":[{"id":8,"ref":"PGM I. 262–347","title":"Apollonian invocation"},{"id":25,"ref":"PGM III. 494–611","title":"[Spell to establish a relationship with] Helios"},{"id":33,"ref":"PGM IV. 88–93","title":"Another, to Helios"},{"id":42,"ref":"PGM IV. 475–829","title":"(No title) The \"Mithras Liturgy\""},{"id":49,"ref":"PGM IV. 1115–66","title":"Hidden stele (prayer)"},{"id":52,"ref":"PGM IV. 1265–74","title":"Aphrodite's name (love spell)"},{"id":65,"ref":"PGM IV. 2145–2240","title":"Divine assistance from three Homeric verses"},{"id":66,"ref":"PGM IV. 2241–2358","title":"Document to the waning moon"},{"id":77,"ref":"PGM IV. 3086–3124","title":"Oracle of Kronos, called \"little mill\""},{"id":80,"ref":"PGM IV. 3209–54","title":"Saucer divination of Aphrodite"},{"id":83,"ref":"PGM V. 1–53","title":"Oracle of Sarapis"},{"id":86,"ref":"PGM V. 96–172","title":"Stele of Jeu the hieroglyphist (letter)"},{"id":88,"ref":"PGM V. 213–303","title":"Hermes' ring"},{"id":94,"ref":"PGM VI. 1–47","title":"(No title) Prayer for encounter with Helios"},{"id":112,"ref":"PGM VII. 215–18","title":"Stele of Aphrodite (spell for favor)"},{"id":114,"ref":"PGM VII. 222–49","title":"Request for a dream oracle from Besas"},{"id":146,"ref":"PGM VII. 505–28","title":"Meeting with your own daimon"},{"id":160,"ref":"PGM VII. 727–39","title":"Charm for a direct vision of Apollo"},{"id":166,"ref":"PGM VII. 919–24","title":"Hermes' wondrous victory charm"},{"id":176,"ref":"PGM VIII. 64–110","title":"Request for a dream oracle of Besas"},{"id":180,"ref":"PGM X. 36–50","title":"Apollo's charm to subject"},{"id":188,"ref":"PGM XII. 1–13","title":"Rite (to produce an epiphany of Kore)"},{"id":189,"ref":"PGM XII. 14–95","title":"Eros as assistant daimon"},{"id":223,"ref":"PDM xiv. 116","title":"A \"god's arrival\""},{"id":225,"ref":"PDM xiv. 150–231","title":"A \"god's arrival\""},{"id":226,"ref":"PDM xiv. 232–38","title":"The vessel inquiry of Khonsu"},{"id":361,"ref":"PGM XXXVI. 211–30","title":"Prayer to Helios: charm to restrain anger, and for victory and favor"},{"id":406,"ref":"PDM lxi. 100–105","title":"The red cloth of Nephthys"},{"id":432,"ref":"PGM LXX. 4–25","title":"Charm of Hekate Ereschigal against fear of punishment"},{"id":441,"ref":"PGM LXXXI. 1–10","title":"(No title) Greetings to deities"},{"id":481,"ref":"PGM CV. 1–15","title":"(No title) Invocation of Sarapis"},{"id":492,"ref":"PGM CXVI. 1–17","title":"(No title) Invocation of Typhon-Seth"},{"id":536,"ref":"PDM Supplement 130–38","title":"A \"god's arrival\" of Osiris"},{"id":538,"ref":"PDM Supplement 149–62","title":"A \"god's arrival\" of Thoth"}],"Divination":[{"id":10,"ref":"PGM II. 1–64","title":"(No title) Spell for revelation"},{"id":11,"ref":"PGM II. 65–183","title":"(No title) Alternative spell for revelation"},{"id":14,"ref":"PGM III. 165–86","title":"(No title) Oracular request (?)"},{"id":15,"ref":"PGM III. 187–262","title":"(No title) Spell for revelation"},{"id":16,"ref":"PGM III. 263–75","title":"Foreknowledge charm"},{"id":17,"ref":"PGM III. 275–81","title":"[Horoscope]"},{"id":18,"ref":"PGM III. 282–409","title":"(No title) Spell for foreknowledge"},{"id":20,"ref":"PGM III. 424–66","title":"A copy from a holy book (spell for foreknowledge and memory)"},{"id":22,"ref":"PGM III. 479–83","title":"Foreknowledge charm"},{"id":23,"ref":"PGM III. 483–88","title":"Another (foreknowledge charm to detect a thief)"},{"id":24,"ref":"PGM III. 488–94","title":"Another (spell to detect a thief?)"},{"id":27,"ref":"PGM III. 633–731","title":"(No title) Spell for a direct vision"},{"id":29,"ref":"PGM IV. 1–25","title":"(No title) Spell for revelation"},{"id":31,"ref":"PGM IV. 52–85","title":"(No title) Spell for revelation"},{"id":35,"ref":"PGM IV. 154–285","title":"Nephotes to Psammetichos (letter concerning bowl divination)"},{"id":46,"ref":"PGM IV. 835–49","title":"(No title) Astrological text"},{"id":48,"ref":"PGM IV. 930–1114","title":"Charm that produces direct vision"},{"id":64,"ref":"PGM IV. 2140–44","title":"Pitys the Thessalian's spell for questioning corpses"},{"id":77,"ref":"PGM IV. 3086–3124","title":"Oracle of Kronos, called \"little mill\""},{"id":79,"ref":"PGM IV. 3172–3208","title":"Dream-producing charm"},{"id":80,"ref":"PGM IV. 3209–54","title":"Saucer divination of Aphrodite"},{"id":83,"ref":"PGM V. 1–53","title":"Oracle of Sarapis"},{"id":84,"ref":"PGM V. 54–69","title":"Direct vision spell"},{"id":85,"ref":"PGM V. 70–95","title":"(No title) Spell to catch a thief"},{"id":87,"ref":"PGM V. 172–212","title":"Another way (spell to catch a thief)"},{"id":90,"ref":"PGM V. 370–446","title":"(No title) Spell for revelation"},{"id":93,"ref":"PGM Va. 1–3","title":"(No title) Spell for direct vision"},{"id":96,"ref":"PGM VII. 1–148","title":"Homer oracle"},{"id":98,"ref":"PGM VII. 155–67","title":"Days and hours for divination"},{"id":114,"ref":"PGM VII. 222–49","title":"Request for a dream oracle from Besas"},{"id":115,"ref":"PGM VII. 250–54","title":"Request for a dream oracle"},{"id":116,"ref":"PGM VII. 255–59","title":"Another to the same lamp"},{"id":118,"ref":"PGM VII. 272–83","title":"(No title) Astrological calendar"},{"id":119,"ref":"PGM VII. 284–99","title":"Orbit of the moon (horoscope)"},{"id":124,"ref":"PGM VII. 319–34","title":"Charm for direct vision"},{"id":125,"ref":"PGM VII. 335–47","title":"Charm for direct vision"},{"id":126,"ref":"PGM VII. 348–58","title":"Divination by means of a boy"},{"id":127,"ref":"PGM VII. 359–69","title":"Request for a dream oracle"},{"id":144,"ref":"PGM VII. 478–90","title":"(No title) Spell for dream revelation"},{"id":148,"ref":"PGM VII. 540–78","title":"Lamp divination"},{"id":157,"ref":"PGM VII. 664–85","title":"Request for dream revelations"},{"id":159,"ref":"PGM VII. 703–26","title":"Request for dream oracle"},{"id":160,"ref":"PGM VII. 727–39","title":"Charm for a direct vision of Apollo"},{"id":161,"ref":"PGM VII. 740–55","title":"[Request for a dream oracle]"},{"id":163,"ref":"PGM VII. 795–845","title":"Pythagoras' request for a dream oracle and Demokritos' dream divination"},{"id":164,"ref":"PGM VII. 846–61","title":"Shadow on the sun (spell for revelation)"},{"id":173,"ref":"PGM VII. 1009–16","title":"Divination by a dream"},{"id":176,"ref":"PGM VIII. 64–110","title":"Request for a dream oracle of Besas"},{"id":187,"ref":"PDM xii 21–49","title":"(No title) Prayer for a revelation of a remedy for a disease"},{"id":193,"ref":"PGM XII. 144–52","title":"Request for a dream"},{"id":194,"ref":"PGM XII. 153–60","title":"Spell for a divine revelation"},{"id":198,"ref":"PGM XII. 190–92","title":"Request for a dream oracle spoken to the Bear"},{"id":202,"ref":"PGM XII. 351–64","title":"Demokritos' \"sphere\""},{"id":219,"ref":"PDM xiv","title":"[A vessel divination]"},{"id":220,"ref":"PDM xiv. 1–92","title":"(No title) Spell for revelation"},{"id":221,"ref":"PDM xiv. 93–114 / [PGM XIVa. 1–11]","title":"(No title) Spell for vision (?)"},{"id":222,"ref":"PDM xiv. 115","title":"Another spell for vision (?)"},{"id":224,"ref":"PDM xiv. 117–49","title":"An inquiry of the lamp"},{"id":226,"ref":"PDM xiv. 232–38","title":"The vessel inquiry of Khonsu"},{"id":227,"ref":"PDM xiv. 239–95","title":"[A] vessel [inquiry]"},{"id":233,"ref":"PDM xiv. 376–94","title":"[A vessel divination]"},{"id":236,"ref":"PDM xiv. 451–58 / [PGM XIVb. 12–15]","title":"(No title) Lamp divination"},{"id":237,"ref":"PDM xiv. 459–75","title":"(No title) Lamp divination"},{"id":238,"ref":"PDM xiv. 475–88","title":"Another (lamp divination)"},{"id":239,"ref":"PDM xiv. 489–515","title":"Another (lamp divination)"},{"id":240,"ref":"PDM xiv. 516–27","title":"(No title) Vessel divination"},{"id":247,"ref":"PDM xiv. 620–26","title":"(No title) Vessel divination"},{"id":251,"ref":"PDM xiv. 675–94","title":"(No title) Vessel divination"},{"id":252,"ref":"PDM xiv. 695–700","title":"(No title) Vessel divination"},{"id":264,"ref":"PDM xiv. 750–71","title":"(No title) Lamp divination"},{"id":266,"ref":"PDM xiv. 805–40","title":"Another (vessel inquiry)"},{"id":267,"ref":"PDM xiv. 841–50","title":"Another method (vessel inquiry)"},{"id":268,"ref":"PDM xiv. 851–55","title":"Another (vessel inquiry)"},{"id":269,"ref":"PDM xiv. 856–75","title":"(No title) Inquiry of the sun"},{"id":270,"ref":"PDM xiv. 875–85","title":"Here is another (inquiry of the sun)"},{"id":300,"ref":"PDM xiv. 1078–89","title":"(No title) Request for revelation"},{"id":304,"ref":"PDM xiv. 1110–29","title":"(No title) Spell to open eyes for divination"},{"id":306,"ref":"PDM xiv. 1141–54","title":"(No title) Spell for lamp divination"},{"id":308,"ref":"PDM xiv. 1163–79","title":"(No title) Spell for vessel divination"},{"id":315,"ref":"PDM xiv. 1199–1205","title":"(No title) Spell for lamp divination"},{"id":334,"ref":"PGM XXIIb. 27–31","title":"Request for a dream oracle"},{"id":335,"ref":"PGM XXIIb. 32–35","title":"Request for a dream oracle"},{"id":337,"ref":"PGM XXIVa. 1–25","title":"(No title) Oracle"},{"id":340,"ref":"PGM XXVI. 1–21","title":"(No title) Sortes Astrampsychi (omitted)"},{"id":346,"ref":"PGM XXX a–f","title":"(No title) Oracle questions (omitted)"},{"id":347,"ref":"PGM XXXI a–c","title":"(No title) Oracle questions (omitted)"},{"id":356,"ref":"PGM XXXVI. 102–33","title":"Divination by fire (love spell)"},{"id":381,"ref":"PGM XLVI. 1–4","title":"(No title) Request for revelation (?)"},{"id":386,"ref":"PGM L. 1–18","title":"(No title) Oracle (?)"},{"id":397,"ref":"PDM lxi. 1–30","title":"(No title) Spell for revelation"},{"id":403,"ref":"PDM lxi. 63–78","title":"(No title) Spell for a dream revelation"},{"id":404,"ref":"PDM lxi. 79–94","title":"Way of finding a thief"},{"id":414,"ref":"PGM LXII. 24–46","title":"(No title) Saucer divination"},{"id":415,"ref":"PGM LXII. 47–51","title":"(No title) Oracle"},{"id":416,"ref":"PGM LXII. 52–75","title":"(No title) Horoscope"},{"id":436,"ref":"PGM LXXIII–LXXVI","title":"(No titles) Oracle questions (omitted)"},{"id":437,"ref":"PGM LXXVII. 1–24","title":"(No title) Charm for getting a revelation"},{"id":478,"ref":"PGM CII. 1–17","title":"(No title) Request for a dream oracle"},{"id":486,"ref":"PGM CX. 1–12","title":"(No title) Horoscope"},{"id":539,"ref":"PDM Supplement 162–68","title":"Spell for finding your house of life"}],"Dream Magic":[{"id":79,"ref":"PGM IV. 3172–3208","title":"Dream-producing charm"},{"id":114,"ref":"PGM VII. 222–49","title":"Request for a dream oracle from Besas"},{"id":115,"ref":"PGM VII. 250–54","title":"Request for a dream oracle"},{"id":116,"ref":"PGM VII. 255–59","title":"Another to the same lamp"},{"id":127,"ref":"PGM VII. 359–69","title":"Request for a dream oracle"},{"id":136,"ref":"PGM VII. 407–10","title":"(No title) Dream spell"},{"id":137,"ref":"PGM VII. 411–16","title":"Spell for causing talk while asleep"},{"id":144,"ref":"PGM VII. 478–90","title":"(No title) Spell for dream revelation"},{"id":157,"ref":"PGM VII. 664–85","title":"Request for dream revelations"},{"id":159,"ref":"PGM VII. 703–26","title":"Request for dream oracle"},{"id":161,"ref":"PGM VII. 740–55","title":"[Request for a dream oracle]"},{"id":163,"ref":"PGM VII. 795–845","title":"Pythagoras' request for a dream oracle and Demokritos' dream divination"},{"id":173,"ref":"PGM VII. 1009–16","title":"Divination by a dream"},{"id":176,"ref":"PGM VIII. 64–110","title":"Request for a dream oracle of Besas"},{"id":191,"ref":"PGM XII. 107–21","title":"Charm of Agathokles for sending dreams"},{"id":192,"ref":"PGM XII. 121–43","title":"Zminis of Tentyra's spell for sending dreams"},{"id":193,"ref":"PGM XII. 144–52","title":"Request for a dream"},{"id":198,"ref":"PGM XII. 190–92","title":"Request for a dream oracle spoken to the Bear"},{"id":299,"ref":"PDM xiv. 1070–77","title":"(No title) Spell to send dreams and make a woman love"},{"id":334,"ref":"PGM XXIIb. 27–31","title":"Request for a dream oracle"},{"id":335,"ref":"PGM XXIIb. 32–35","title":"Request for a dream oracle"},{"id":403,"ref":"PDM lxi. 63–78","title":"(No title) Spell for a dream revelation"},{"id":478,"ref":"PGM CII. 1–17","title":"(No title) Request for a dream oracle"},{"id":528,"ref":"PDM Supplement 1–6","title":"[Spell for] sending a dream"},{"id":529,"ref":"PDM Supplement 7–18","title":"[Spell for] sending a dream"},{"id":530,"ref":"PDM Supplement 19–27","title":"Spell for sending a dream"},{"id":531,"ref":"PDM Supplement 28–40","title":"[Spell for] sending a dream"},{"id":532,"ref":"PDM Supplement 40–60","title":"Spell for sending a dream"},{"id":533,"ref":"PDM Supplement 60–101","title":"Spell for sending a dream"},{"id":534,"ref":"PDM Supplement 101–16","title":"Spell for sending a dream"},{"id":535,"ref":"PDM Supplement 117–30","title":"[Spell] for sending a dream"}],"Emotion Magic":[{"id":38,"ref":"PGM IV. 467–68","title":"Charm to restrain anger"},{"id":44,"ref":"PGM IV. 831–32","title":"Charm to restrain anger"},{"id":168,"ref":"PGM VII. 940–68","title":"Charm to restrain anger and to subject"},{"id":179,"ref":"PGM X. 24–35","title":"Charm to restrain anger"},{"id":196,"ref":"PGM XII. 179–81","title":"(No title) Spell for restraining anger"},{"id":354,"ref":"PGM XXXVI. 35–68","title":"Charm to restrain anger and to secure favor"},{"id":358,"ref":"PGM XXXVI. 161–77","title":"Charm to restrain anger, and for success"},{"id":361,"ref":"PGM XXXVI. 211–30","title":"Prayer to Helios: charm to restrain anger, and for victory and favor"},{"id":439,"ref":"PGM LXXIX. 1–7","title":"Charm to restrain anger"},{"id":440,"ref":"PGM LXXX. 1–5","title":"Charm to restrain anger"}],"Exorcism":[{"id":51,"ref":"PGM IV. 1227–64","title":"Rite for driving out daimons"},{"id":76,"ref":"PGM IV. 3007–86","title":"Charm of Pibechis for those possessed by daimons"},{"id":445,"ref":"PGM LXXXV. 1–6","title":"(No title) For daimon possession"},{"id":461,"ref":"PGM XCIV. 17–21","title":"For those possessed by daimons"}],"Foreknowledge":[{"id":16,"ref":"PGM III. 263–75","title":"Foreknowledge charm"},{"id":18,"ref":"PGM III. 282–409","title":"(No title) Spell for foreknowledge"},{"id":20,"ref":"PGM III. 424–66","title":"A copy from a holy book (spell for foreknowledge and memory)"},{"id":22,"ref":"PGM III. 479–83","title":"Foreknowledge charm"},{"id":23,"ref":"PGM III. 483–88","title":"Another (foreknowledge charm to detect a thief)"}],"Friendship":[{"id":39,"ref":"PGM IV. 469–70","title":"(Charm) to get friends"},{"id":45,"ref":"PGM IV. 833–34","title":"(Charm) to get friends"},{"id":205,"ref":"PGM XII. 397–400","title":"To gain favor and friendship forever"}],"General Magic":[{"id":92,"ref":"PGM V. 459–89","title":"Another way (spell for many purposes)"},{"id":120,"ref":"PGM VII. 300","title":"(No title) Spell of uncertain purpose"},{"id":172,"ref":"PGM VII. 993–1009","title":"(No title) Spell of uncertain purpose"},{"id":217,"ref":"PGM XIII. 647–734","title":"(No title) A collection of miscellaneous spells"},{"id":297,"ref":"PDM xiv. 1056–62","title":"(No title) Spells involving voces magicae"},{"id":364,"ref":"PGM XXXVI. 264–74","title":"(No title) Charm of uncertain purpose"},{"id":372,"ref":"PGM XXXVII. 1–26","title":"(No title) Spell of uncertain purpose"},{"id":391,"ref":"PGM LIII–LVI","title":"(No titles) Spells (?) of uncertain purpose (omitted)"},{"id":394,"ref":"PGM LVIII. 15–39","title":"(No title) Spell of uncertain purpose"},{"id":398,"ref":"PDM lxi. 30–41","title":"(No title) Spell of uncertain purpose"},{"id":399,"ref":"PDM lxi. 42","title":"(No title) Spell of uncertain purpose"},{"id":420,"ref":"PGM LXIII. 13–20","title":"(No title) Spell of uncertain purpose"},{"id":421,"ref":"PGM LXIII. 21–24","title":"(No title) Spell of uncertain purpose"},{"id":471,"ref":"PGM XCVII. 7–9","title":"Another (spell)"},{"id":472,"ref":"PGM XCVII. 10–13","title":"Another (spell)"},{"id":494,"ref":"PGM CXVIII","title":"(No title) Magical scroll (omitted)"},{"id":499,"ref":"PGM CXIXb. 1–3","title":"(No title)"},{"id":503,"ref":"PGM CXXII. 1–5","title":"An excerpt for enchantments"},{"id":520,"ref":"PGM CXXIV. 6–43","title":"(No title) Fragments of spells"},{"id":526,"ref":"PGM CXXIX. 1–7","title":"(No title) Fragment of unidentifiable spell"},{"id":541,"ref":"PDM Supplement 185–208","title":"(No title) Fragments of rites and formulae"}],"Healing":[{"id":102,"ref":"PGM VII. 193–96","title":"For scorpion sting"},{"id":103,"ref":"PGM VII. 197–98","title":"For discharge of the eyes"},{"id":104,"ref":"PGM VII. 199–201","title":"For migraine headache"},{"id":105,"ref":"PGM VII. 201–2","title":"Another (for migraine headache)"},{"id":106,"ref":"PGM VII. 203–5","title":"For coughs"},{"id":107,"ref":"PGM VII. 206–7","title":"Another (for coughs)"},{"id":108,"ref":"PGM VII. 208–9","title":"For hardening of the breasts"},{"id":109,"ref":"PGM VII. 209–10","title":"For swollen testicles"},{"id":110,"ref":"PGM VII. 211–12","title":"For fever with shivering fits"},{"id":111,"ref":"PGM VII. 213–14","title":"For daily fever and nightly fever"},{"id":113,"ref":"PGM VII. 218–21","title":"Phylactery for daily fever with shivering fits"},{"id":117,"ref":"PGM VII. 260–71","title":"For the ascent of the uterus"},{"id":187,"ref":"PDM xii 21–49","title":"(No title) Prayer for a revelation of a remedy for a disease"},{"id":241,"ref":"PDM xiv. 528–53","title":"(No title) Spell for dog bite"},{"id":242,"ref":"PDM xiv. 554–62","title":"(No title) Spell for removal of poison"},{"id":243,"ref":"PDM xiv. 563–74","title":"(No title) Spell for removal of bone stuck in the throat"},{"id":244,"ref":"PDM xiv. 574–85","title":"(No title) Spell for dog bite"},{"id":245,"ref":"PDM xiv. 585–93","title":"(No title) Spell for sting"},{"id":246,"ref":"PDM xiv. 594–620","title":"(No title) Spell for removal of bone stuck in the throat"},{"id":278,"ref":"PDM xiv. 935–39","title":"(No title) Prescription for a watery ear"},{"id":280,"ref":"PDM xiv. 953–55","title":"A prescription (to stop blood)"},{"id":281,"ref":"PDM xiv. 956–60","title":"(No title) Test of pregnancy"},{"id":282,"ref":"PDM xiv. 961–65","title":"A prescription (two prescriptions to stop blood)"},{"id":284,"ref":"PDM xiv. 970–77","title":"A prescription (two prescriptions to stop liquid in a woman)"},{"id":285,"ref":"PDM xiv. 978–80","title":"Another (prescription to stop liquid in a woman)"},{"id":286,"ref":"PDM xiv. 981–84","title":"Another (prescription to stop liquid in a woman)"},{"id":287,"ref":"PDM xiv. 985–92","title":"Gout (prescription)"},{"id":288,"ref":"PDM xiv. 993–1002","title":"Another (prescription for gout)"},{"id":289,"ref":"PDM xiv. 1003–14","title":"(No title) Amulet for gout"},{"id":290,"ref":"PDM xiv. 1015–20","title":"(No title) Prescription for unidentifiable ailment"},{"id":291,"ref":"PDM xiv. 1021–23","title":"(No title) Prescription for a stiff foot"},{"id":292,"ref":"PDM xiv. 1024–25","title":"(No title) Another prescription for a stiff foot"},{"id":302,"ref":"PDM xiv. 1097–1103","title":"(No title) Spell to heal an eye disease"},{"id":303,"ref":"PDM xiv. 1104–9","title":"(No title) Recipe concerning eye ointment"},{"id":317,"ref":"PDM xiv. 1219–27","title":"(No title) Spell for fever"},{"id":323,"ref":"PGM XVIIIa. 1–4","title":"(No title) Amulet for headache"},{"id":324,"ref":"PGM XVIIIb. 1–7","title":"(No title) Fever amulet"},{"id":328,"ref":"PGM XX. 1–4","title":"[Spell for] headache"},{"id":329,"ref":"PGM XX. 4–12","title":"[The charm] of the Syrian woman of Gadara for any inflammation"},{"id":330,"ref":"PGM XX. 13–19","title":"The charm of the Thessalian Philinna, [for] headache"},{"id":332,"ref":"PGM XXIIa. 1–27","title":"(No title) Magico-medical recipes"},{"id":342,"ref":"PGM XXVIIIa. 1–7","title":"(No title) Spell for scorpion sting"},{"id":343,"ref":"PGM XXVIIIb. 1–9","title":"(No title) Spell for scorpion sting"},{"id":344,"ref":"PGM XXVIIIc. 1–11","title":"(No title) Spell for scorpion sting"},{"id":350,"ref":"PGM XXXIII. 1–25","title":"(No title) Fever amulet"},{"id":378,"ref":"PGM XLIII. 1–27","title":"(No title) Amulet against fever"},{"id":379,"ref":"PGM XLIV. 1–18","title":"(No title) Amulet against fever (?)"},{"id":383,"ref":"PGM XLVII. 1–17","title":"(No title) Amulet against fever"},{"id":400,"ref":"PDM lxi. 43–48 / [PGM LXI. i–v]*","title":"Remedy for [an] ulcer (?) of the head"},{"id":401,"ref":"PDM lxi. 49–57","title":"[Remedy for the] head (?)"},{"id":402,"ref":"PDM lxi. 58–62 / [PGM LXI. xi, x]*","title":"For an erection"},{"id":426,"ref":"PGM LXV. 4–7","title":"For migraine headache"},{"id":443,"ref":"PGM LXXXIII. 1–20","title":"For fever with shivering fits"},{"id":448,"ref":"PGM LXXXVII. 1–11","title":"(No title) Fever amulet"},{"id":449,"ref":"PGM LXXXVIII. 1–19","title":"(No title) Fever amulet"},{"id":450,"ref":"PGM LXXXIX. 1–27","title":"(No title) Phylactery for fever, phantoms, daimons, etc."},{"id":452,"ref":"PGM XC. 14–18","title":"Salve for fever"},{"id":453,"ref":"PGM XCI. 1–14","title":"(No title) Fever amulet (?)"},{"id":458,"ref":"PGM XCIV. 4–6","title":"Drying powder made with saffron [for] sharp eyesight"},{"id":459,"ref":"PGM XCIV. 7–9","title":"For excellent health"},{"id":460,"ref":"PGM XCIV. 10–16","title":"A phylactery for [fever]"},{"id":462,"ref":"PGM XCIV. 22–26","title":"For the eyes"},{"id":463,"ref":"PGM XCIV. 27–35","title":"[For] tumors [and] . . ."},{"id":464,"ref":"PGM XCIV. 36–38","title":"[For . . . ] and strangury"},{"id":465,"ref":"PGM XCIV. 39–60","title":"Another, for migraine headache"},{"id":468,"ref":"PGM XCV. 14–18","title":"A remedy for all cases of . . . [epilepsy]"},{"id":470,"ref":"PGM XCVII. 1–6","title":"(No title) Spell against eye disease (?)"},{"id":473,"ref":"PGM XCVII. 15–17","title":"For every [disease]"},{"id":480,"ref":"PGM CIV. 1–8","title":"(No title) Amulet for fever with shivering fits"},{"id":482,"ref":"PGM CVI. 1–10","title":"(No title) Amulet for fever with shivering fits"},{"id":488,"ref":"PGM CXII. 1–15","title":"(No title) Amulet for scorpion sting"},{"id":489,"ref":"PGM CXIII. 1–4","title":"(No title) Amulet for scorpion sting"},{"id":490,"ref":"PGM CXIV. 1–14","title":"(No title) Amulet for attacks by daimons and for epilepsy"},{"id":491,"ref":"PGM CXV. 1–7","title":"(No title) Amulet for fever with shivering fits"},{"id":500,"ref":"PGM CXIXb. 4–5","title":"[For fever with shivering fits]"},{"id":501,"ref":"PGM CXX. 1–13","title":"(No title) Amulet (for inflammation of the uvula?)"},{"id":506,"ref":"PGM CXXII. 51–55","title":"For headache"},{"id":509,"ref":"PGM CXXIIIa. 48–50","title":"For childbearing"},{"id":510,"ref":"PGM CXXIIIa. 51–52","title":"For sleep"},{"id":511,"ref":"PGM CXXIIIa. 53–55","title":"For strangury"},{"id":512,"ref":"PGM CXXIIIa. 56–68","title":"For a shivering fit"},{"id":524,"ref":"PGM CXXVII. 1–12","title":"(No title) Fragment of formulary of magico-medical prescriptions"},{"id":525,"ref":"PGM CXXVIII. 1–12","title":"Phylactery for fever"},{"id":527,"ref":"PGM CXXX. 1–13","title":"(No title) For a shivering fever"}],"Herbalism":[{"id":36,"ref":"PGM IV. 286–95","title":"Spell for picking a plant"},{"id":75,"ref":"PGM IV. 2967–3006","title":"(No title) Spell for picking a plant"},{"id":169,"ref":"PGM VII. 969–72","title":"A good potion (love spell)"},{"id":190,"ref":"PGM XII. 96–106","title":"Himerios' recipes"},{"id":232,"ref":"PDM xiv. 366–75","title":"(No title) Various recipes"},{"id":234,"ref":"PDM xiv. 395–427","title":"(No title) Two love potions"},{"id":248,"ref":"PDM xiv. 627–35","title":"(No title) Love potion"},{"id":271,"ref":"PDM xiv. 886–96","title":"(No title) Recipes involving herbs"},{"id":272,"ref":"PDM xiv. 897–910","title":"(No title) List of herbs and minerals"},{"id":275,"ref":"PDM xiv. 920–29","title":"(No title) Information concerning mineral"},{"id":276,"ref":"PDM xiv. 930–32","title":"A prescription (love spell)"},{"id":277,"ref":"PDM xiv. 933–34","title":"(No title) Information concerning mineral"},{"id":279,"ref":"PDM xiv. 940–52","title":"(No title) Information concerning salamander and herbs"},{"id":283,"ref":"PDM xiv. 966–69","title":"(No title) Information concerning herbs"},{"id":303,"ref":"PDM xiv. 1104–9","title":"(No title) Recipe concerning eye ointment"},{"id":418,"ref":"PGM LXIII. 1–7","title":"(No title) Love-potion (?)"},{"id":442,"ref":"PGM LXXXII. 1–12","title":"(No title) Recipe for ingredients (fragment of formulary?)"},{"id":458,"ref":"PGM XCIV. 4–6","title":"Drying powder made with saffron [for] sharp eyesight"},{"id":504,"ref":"PGM CXXII. 5–25","title":"Enchantment using apples"}],"Initiation":[{"id":30,"ref":"PGM IV. 26–51","title":"Initiation"},{"id":42,"ref":"PGM IV. 475–829","title":"(No title) The \"Mithras Liturgy\""},{"id":214,"ref":"PGM XIII. 1–734","title":"[Part A: Initiation ritual and magical handbook]"},{"id":215,"ref":"PGM XIII. 1–343","title":"[Part B: A second, different version of the initiation ritual]"},{"id":216,"ref":"PGM XIII. 343–646","title":"[Part C: A third, different version of the initiation ritual]"}],"Invisibility":[{"id":5,"ref":"PGM I. 222–31","title":"Invisibility spell"},{"id":7,"ref":"PGM I. 247–62","title":"Spell for invisibility"},{"id":152,"ref":"PGM VII. 619–27","title":"From the Diadem of Moses (spells for invisibility and love)"}],"Invocation":[{"id":8,"ref":"PGM I. 262–347","title":"Apollonian invocation"},{"id":150,"ref":"PGM VII. 591–92","title":"(No title) Prayer of invocation"},{"id":185,"ref":"PDM xii 1–5","title":"(No title) Invocation"},{"id":309,"ref":"PDM xiv. 1180–81","title":"(No title) Fragment from invocation"},{"id":331,"ref":"PGM XXI. 1–29","title":"(No title) Invocation"},{"id":481,"ref":"PGM CV. 1–15","title":"(No title) Invocation of Sarapis"},{"id":492,"ref":"PGM CXVI. 1–17","title":"(No title) Invocation of Typhon-Seth"}],"Legal & Justice":[{"id":23,"ref":"PGM III. 483–88","title":"Another (foreknowledge charm to detect a thief)"},{"id":24,"ref":"PGM III. 488–94","title":"Another (spell to detect a thief?)"},{"id":85,"ref":"PGM V. 70–95","title":"(No title) Spell to catch a thief"},{"id":87,"ref":"PGM V. 172–212","title":"Another way (spell to catch a thief)"},{"id":404,"ref":"PDM lxi. 79–94","title":"Way of finding a thief"}],"Literary":[{"id":40,"ref":"PGM IV. 471–73","title":"(No title) Verses from Homer"},{"id":41,"ref":"PGM IV. 474","title":"(No title) Verse from Homer"},{"id":43,"ref":"PGM IV. 830","title":"(No title) Verse from Homer"},{"id":65,"ref":"PGM IV. 2145–2240","title":"Divine assistance from three Homeric verses"},{"id":96,"ref":"PGM VII. 1–148","title":"Homer oracle"},{"id":181,"ref":"PGM XIa. 1–40","title":"Apollonius of Tyana's old serving woman"},{"id":336,"ref":"PGM XXIII. 1–70","title":"Fragment of the Kestoi of Julius Africanus"},{"id":345,"ref":"PGM XXIX. 1–10","title":"(No title) Prayer (poem)"},{"id":351,"ref":"PGM XXXIV. 1–24","title":"(No title) Fragment from a novel"}],"Love Magic":[{"id":34,"ref":"PGM IV. 94–153","title":"(No title) Love spell of attraction"},{"id":37,"ref":"PGM IV. 296–466","title":"Wondrous spell for binding a lover"},{"id":52,"ref":"PGM IV. 1265–74","title":"Aphrodite's name (love spell)"},{"id":56,"ref":"PGM IV. 1390–1495","title":"Love spell of attraction"},{"id":57,"ref":"PGM IV. 1496–1595","title":"Love spell of attraction"},{"id":59,"ref":"PGM IV. 1716–1870","title":"Sword of Dardanos (love spell)"},{"id":61,"ref":"PGM IV. 1928–2005","title":"King Pitys' spell of attraction"},{"id":62,"ref":"PGM IV. 2006–2125","title":"Pitys' spell of attraction"},{"id":69,"ref":"PGM IV. 2441–2621","title":"Love spell of attraction"},{"id":71,"ref":"PGM IV. 2708–84","title":"Love spell of attraction"},{"id":73,"ref":"PGM IV. 2891–2942","title":"Love spell of attraction"},{"id":74,"ref":"PGM IV. 2943–66","title":"Love spell of attraction"},{"id":101,"ref":"PGM VII. 191–92","title":"Spell for binding a lover"},{"id":121,"ref":"PGM VII. 300a–310","title":"Love charm"},{"id":131,"ref":"PGM VII. 385–89","title":"Cup spell (love spell)"},{"id":135,"ref":"PGM VII. 405–6","title":"Love spell"},{"id":141,"ref":"PGM VII. 459–61","title":"Love charm"},{"id":142,"ref":"PGM VII. 462–66","title":"Love charm"},{"id":143,"ref":"PGM VII. 467–77","title":"(No title) Love spell of attraction"},{"id":152,"ref":"PGM VII. 619–27","title":"From the Diadem of Moses (spells for invisibility and love)"},{"id":154,"ref":"PGM VII. 643–51","title":"Cup spell (love spell)"},{"id":156,"ref":"PGM VII. 661–63","title":"Love spell"},{"id":169,"ref":"PGM VII. 969–72","title":"A good potion (love spell)"},{"id":170,"ref":"PGM VII. 973–80","title":"Love spell of attraction . . ."},{"id":171,"ref":"PGM VII. 981–93","title":"[Love spell of attraction]"},{"id":175,"ref":"PGM VIII. 1–63","title":"Binding love spell of Astrapsoukos"},{"id":178,"ref":"PGM X. 1–23","title":"(No title [?]) Love spell"},{"id":183,"ref":"PGM XIc. 1–19","title":"(No title) Love spell"},{"id":211,"ref":"PDM xii. 119–34 / [PGM XII. 469–73]","title":"(No title) Love spell of attraction"},{"id":212,"ref":"PDM xii. 135–46 / [PGM XII. 474–79]","title":"Another (love spell of attraction)"},{"id":229,"ref":"PDM xiv. 309–34","title":"(No title) Love spell"},{"id":230,"ref":"PDM xiv. 335–55","title":"Another love spell"},{"id":234,"ref":"PDM xiv. 395–427","title":"(No title) Two love potions"},{"id":248,"ref":"PDM xiv. 627–35","title":"(No title) Love potion"},{"id":265,"ref":"PDM xiv. 772–804","title":"A method (love spells)"},{"id":276,"ref":"PDM xiv. 930–32","title":"A prescription (love spell)"},{"id":293,"ref":"PDM xiv. 1026–45","title":"(No title) Love spell"},{"id":294,"ref":"PDM xiv. 1046–47","title":"(No title) Love spell"},{"id":295,"ref":"PDM xiv. 1047–48","title":"(No title) Love spell"},{"id":296,"ref":"PDM xiv. 1049–55","title":"(No title) Love spell"},{"id":298,"ref":"PDM xiv. 1063–69","title":"(No title) Love spell"},{"id":299,"ref":"PDM xiv. 1070–77","title":"(No title) Spell to send dreams and make a woman love"},{"id":305,"ref":"PDM xiv. 1130–40","title":"(No title) Love spell"},{"id":307,"ref":"PDM xiv. 1155–62","title":"(No title) Love spell"},{"id":311,"ref":"PDM xiv. 1188–89","title":"(No title) Love spell (?)"},{"id":312,"ref":"PDM xiv. 1190–93","title":"(No title) Another love spell"},{"id":313,"ref":"PDM xiv. 1194–95","title":"(No title) Another love spell"},{"id":314,"ref":"PDM xiv. 1196–98","title":"(No title) Another love spell"},{"id":316,"ref":"PDM xiv. 1206–18","title":"(No title) Love spell"},{"id":318,"ref":"PGM XV. 1–21","title":"(No title) Charm to bind a lover"},{"id":319,"ref":"PGM XVI. 1–75","title":"(No title) Charm to bind a lover"},{"id":320,"ref":"PGM XVIIa. 1–25","title":"(No title) Love spell of attraction"},{"id":325,"ref":"PGM XIXa. 1–54","title":"(No title) Love spell of attraction"},{"id":326,"ref":"PGM XIXb. 1–3","title":"(No title) Love spell of attraction"},{"id":327,"ref":"PGM XIXb. 4–18","title":"Love spell of attraction"},{"id":338,"ref":"PGM XXIVb. 1–15","title":"(No title) Love spell"},{"id":348,"ref":"PGM XXXII. 1–19","title":"(No title) Love spell of attraction"},{"id":349,"ref":"PGM XXXIIa. 1–25","title":"(No title) Love spell of attraction"},{"id":355,"ref":"PGM XXXVI. 69–101","title":"Love spell of attraction"},{"id":356,"ref":"PGM XXXVI. 102–33","title":"Divination by fire (love spell)"},{"id":357,"ref":"PGM XXXVI. 134–60","title":"Love spell of attraction"},{"id":360,"ref":"PGM XXXVI. 187–210","title":"Love spell of attraction"},{"id":366,"ref":"PGM XXXVI. 283–94","title":"Pudenda key spell"},{"id":367,"ref":"PGM XXXVI. 295–311","title":"Love spell of attraction"},{"id":370,"ref":"PGM XXXVI. 333–60","title":"Love spell of attraction"},{"id":371,"ref":"PGM XXXVI. 361–71","title":"Love spell of attraction"},{"id":373,"ref":"PGM XXXVIII. 1–26","title":"(No title) Love spell of attraction"},{"id":374,"ref":"PGM XXXIX. 1–21","title":"(No title) Love spell of attraction"},{"id":388,"ref":"PGM LII. 1–9","title":"(No title) Love spell (?)"},{"id":389,"ref":"PGM LII. 9–19","title":"(No title) Love spell (?)"},{"id":405,"ref":"PDM lxi. 95–99","title":"Spell of giving praise and love in Nubian"},{"id":408,"ref":"PDM lxi. 112–27","title":"Prescription for making a woman love"},{"id":409,"ref":"PDM lxi. 128–47","title":"(No title) Love spell"},{"id":410,"ref":"PDM lxi. 148–58","title":"(No title) Love spell"},{"id":411,"ref":"PDM lxi. 159–96 / [PGM LXI. 1–38]","title":"Love charm"},{"id":412,"ref":"PDM lxi. 197–216 / [PGM LXI. 39–71]","title":"Love spell of attraction"},{"id":413,"ref":"PGM LXII. 1–24","title":"(No title) Love spell of attraction"},{"id":418,"ref":"PGM LXIII. 1–7","title":"(No title) Love-potion (?)"},{"id":419,"ref":"PGM LXIII. 7–12","title":"[Spell to make a woman] confess the name of the man she loves"},{"id":428,"ref":"PGM LXVII. 1–24","title":"(No title) Love spell (?)"},{"id":429,"ref":"PGM LXVIII. 1–20","title":"(No title) Love spell"},{"id":438,"ref":"PGM LXXVIII. 1–14","title":"(No title) Love spell of attraction"},{"id":485,"ref":"PGM CIX. 1–8","title":"(No title) Love spell"},{"id":496,"ref":"PGM CXIXa. 2–3","title":"Love spell through touch"},{"id":504,"ref":"PGM CXXII. 5–25","title":"Enchantment using apples"},{"id":505,"ref":"PGM CXXII. 26–50","title":"(No title) Love spell (fetching charm?)"},{"id":508,"ref":"PGM CXXIIIa. 24–47","title":"Erotylos"},{"id":516,"ref":"PGM CXXIIId","title":"(No title) Parallel of CXXIIIa. 24–47"},{"id":517,"ref":"PGM CXXIIIe","title":"(No title) Parallel of CXXIIIa. 24–47"}],"Lunar Magic":[{"id":66,"ref":"PGM IV. 2241–2358","title":"Document to the waning moon"},{"id":70,"ref":"PGM IV. 2622–2707","title":"Slander spell to Selene"},{"id":72,"ref":"PGM IV. 2785–2890","title":"Prayer to Selene"},{"id":119,"ref":"PGM VII. 284–99","title":"Orbit of the moon (horoscope)"},{"id":165,"ref":"PGM VII. 862–918","title":"Lunar spell of Klaudianos"}],"Medical":[{"id":102,"ref":"PGM VII. 193–96","title":"For scorpion sting"},{"id":103,"ref":"PGM VII. 197–98","title":"For discharge of the eyes"},{"id":104,"ref":"PGM VII. 199–201","title":"For migraine headache"},{"id":105,"ref":"PGM VII. 201–2","title":"Another (for migraine headache)"},{"id":106,"ref":"PGM VII. 203–5","title":"For coughs"},{"id":107,"ref":"PGM VII. 206–7","title":"Another (for coughs)"},{"id":108,"ref":"PGM VII. 208–9","title":"For hardening of the breasts"},{"id":109,"ref":"PGM VII. 209–10","title":"For swollen testicles"},{"id":110,"ref":"PGM VII. 211–12","title":"For fever with shivering fits"},{"id":111,"ref":"PGM VII. 213–14","title":"For daily fever and nightly fever"},{"id":113,"ref":"PGM VII. 218–21","title":"Phylactery for daily fever with shivering fits"},{"id":117,"ref":"PGM VII. 260–71","title":"For the ascent of the uterus"},{"id":241,"ref":"PDM xiv. 528–53","title":"(No title) Spell for dog bite"},{"id":242,"ref":"PDM xiv. 554–62","title":"(No title) Spell for removal of poison"},{"id":243,"ref":"PDM xiv. 563–74","title":"(No title) Spell for removal of bone stuck in the throat"},{"id":244,"ref":"PDM xiv. 574–85","title":"(No title) Spell for dog bite"},{"id":245,"ref":"PDM xiv. 585–93","title":"(No title) Spell for sting"},{"id":246,"ref":"PDM xiv. 594–620","title":"(No title) Spell for removal of bone stuck in the throat"},{"id":278,"ref":"PDM xiv. 935–39","title":"(No title) Prescription for a watery ear"},{"id":280,"ref":"PDM xiv. 953–55","title":"A prescription (to stop blood)"},{"id":281,"ref":"PDM xiv. 956–60","title":"(No title) Test of pregnancy"},{"id":282,"ref":"PDM xiv. 961–65","title":"A prescription (two prescriptions to stop blood)"},{"id":284,"ref":"PDM xiv. 970–77","title":"A prescription (two prescriptions to stop liquid in a woman)"},{"id":285,"ref":"PDM xiv. 978–80","title":"Another (prescription to stop liquid in a woman)"},{"id":286,"ref":"PDM xiv. 981–84","title":"Another (prescription to stop liquid in a woman)"},{"id":287,"ref":"PDM xiv. 985–92","title":"Gout (prescription)"},{"id":288,"ref":"PDM xiv. 993–1002","title":"Another (prescription for gout)"},{"id":289,"ref":"PDM xiv. 1003–14","title":"(No title) Amulet for gout"},{"id":290,"ref":"PDM xiv. 1015–20","title":"(No title) Prescription for unidentifiable ailment"},{"id":291,"ref":"PDM xiv. 1021–23","title":"(No title) Prescription for a stiff foot"},{"id":292,"ref":"PDM xiv. 1024–25","title":"(No title) Another prescription for a stiff foot"},{"id":302,"ref":"PDM xiv. 1097–1103","title":"(No title) Spell to heal an eye disease"},{"id":303,"ref":"PDM xiv. 1104–9","title":"(No title) Recipe concerning eye ointment"},{"id":317,"ref":"PDM xiv. 1219–27","title":"(No title) Spell for fever"},{"id":323,"ref":"PGM XVIIIa. 1–4","title":"(No title) Amulet for headache"},{"id":324,"ref":"PGM XVIIIb. 1–7","title":"(No title) Fever amulet"},{"id":328,"ref":"PGM XX. 1–4","title":"[Spell for] headache"},{"id":329,"ref":"PGM XX. 4–12","title":"[The charm] of the Syrian woman of Gadara for any inflammation"},{"id":330,"ref":"PGM XX. 13–19","title":"The charm of the Thessalian Philinna, [for] headache"},{"id":332,"ref":"PGM XXIIa. 1–27","title":"(No title) Magico-medical recipes"},{"id":342,"ref":"PGM XXVIIIa. 1–7","title":"(No title) Spell for scorpion sting"},{"id":343,"ref":"PGM XXVIIIb. 1–9","title":"(No title) Spell for scorpion sting"},{"id":344,"ref":"PGM XXVIIIc. 1–11","title":"(No title) Spell for scorpion sting"},{"id":350,"ref":"PGM XXXIII. 1–25","title":"(No title) Fever amulet"},{"id":369,"ref":"PGM XXXVI. 320–32","title":"Contraceptive spell"},{"id":378,"ref":"PGM XLIII. 1–27","title":"(No title) Amulet against fever"},{"id":379,"ref":"PGM XLIV. 1–18","title":"(No title) Amulet against fever (?)"},{"id":383,"ref":"PGM XLVII. 1–17","title":"(No title) Amulet against fever"},{"id":400,"ref":"PDM lxi. 43–48 / [PGM LXI. i–v]*","title":"Remedy for [an] ulcer (?) of the head"},{"id":401,"ref":"PDM lxi. 49–57","title":"[Remedy for the] head (?)"},{"id":402,"ref":"PDM lxi. 58–62 / [PGM LXI. xi, x]*","title":"For an erection"},{"id":422,"ref":"PGM LXIII. 24–25","title":"Contraceptive"},{"id":423,"ref":"PGM LXIII. 26–28","title":"Contraceptive"},{"id":425,"ref":"PGM LXV. 1–4","title":"Spell to [prevent pregnancy]"},{"id":426,"ref":"PGM LXV. 4–7","title":"For migraine headache"},{"id":443,"ref":"PGM LXXXIII. 1–20","title":"For fever with shivering fits"},{"id":448,"ref":"PGM LXXXVII. 1–11","title":"(No title) Fever amulet"},{"id":449,"ref":"PGM LXXXVIII. 1–19","title":"(No title) Fever amulet"},{"id":452,"ref":"PGM XC. 14–18","title":"Salve for fever"},{"id":453,"ref":"PGM XCI. 1–14","title":"(No title) Fever amulet (?)"},{"id":458,"ref":"PGM XCIV. 4–6","title":"Drying powder made with saffron [for] sharp eyesight"},{"id":459,"ref":"PGM XCIV. 7–9","title":"For excellent health"},{"id":460,"ref":"PGM XCIV. 10–16","title":"A phylactery for [fever]"},{"id":462,"ref":"PGM XCIV. 22–26","title":"For the eyes"},{"id":463,"ref":"PGM XCIV. 27–35","title":"[For] tumors [and] . . ."},{"id":464,"ref":"PGM XCIV. 36–38","title":"[For . . . ] and strangury"},{"id":465,"ref":"PGM XCIV. 39–60","title":"Another, for migraine headache"},{"id":468,"ref":"PGM XCV. 14–18","title":"A remedy for all cases of . . . [epilepsy]"},{"id":470,"ref":"PGM XCVII. 1–6","title":"(No title) Spell against eye disease (?)"},{"id":473,"ref":"PGM XCVII. 15–17","title":"For every [disease]"},{"id":480,"ref":"PGM CIV. 1–8","title":"(No title) Amulet for fever with shivering fits"},{"id":482,"ref":"PGM CVI. 1–10","title":"(No title) Amulet for fever with shivering fits"},{"id":488,"ref":"PGM CXII. 1–15","title":"(No title) Amulet for scorpion sting"},{"id":489,"ref":"PGM CXIII. 1–4","title":"(No title) Amulet for scorpion sting"},{"id":491,"ref":"PGM CXV. 1–7","title":"(No title) Amulet for fever with shivering fits"},{"id":500,"ref":"PGM CXIXb. 4–5","title":"[For fever with shivering fits]"},{"id":501,"ref":"PGM CXX. 1–13","title":"(No title) Amulet (for inflammation of the uvula?)"},{"id":506,"ref":"PGM CXXII. 51–55","title":"For headache"},{"id":509,"ref":"PGM CXXIIIa. 48–50","title":"For childbearing"},{"id":511,"ref":"PGM CXXIIIa. 53–55","title":"For strangury"},{"id":512,"ref":"PGM CXXIIIa. 56–68","title":"For a shivering fit"},{"id":524,"ref":"PGM CXXVII. 1–12","title":"(No title) Fragment of formulary of magico-medical prescriptions"},{"id":525,"ref":"PGM CXXVIII. 1–12","title":"Phylactery for fever"},{"id":527,"ref":"PGM CXXX. 1–13","title":"(No title) For a shivering fever"}],"Memory":[{"id":6,"ref":"PGM I. 232–47","title":"Memory spell"},{"id":19,"ref":"PGM III. 410–23","title":"(No title) Memory spell"},{"id":20,"ref":"PGM III. 424–66","title":"A copy from a holy book (spell for foreknowledge and memory)"},{"id":21,"ref":"PGM III. 467–78","title":"Memory spell"}],"Necromancy":[{"id":64,"ref":"PGM IV. 2140–44","title":"Pitys the Thessalian's spell for questioning corpses"}],"Oracle":[{"id":14,"ref":"PGM III. 165–86","title":"(No title) Oracular request (?)"},{"id":77,"ref":"PGM IV. 3086–3124","title":"Oracle of Kronos, called \"little mill\""},{"id":83,"ref":"PGM V. 1–53","title":"Oracle of Sarapis"},{"id":96,"ref":"PGM VII. 1–148","title":"Homer oracle"},{"id":337,"ref":"PGM XXIVa. 1–25","title":"(No title) Oracle"},{"id":340,"ref":"PGM XXVI. 1–21","title":"(No title) Sortes Astrampsychi (omitted)"},{"id":346,"ref":"PGM XXX a–f","title":"(No title) Oracle questions (omitted)"},{"id":347,"ref":"PGM XXXI a–c","title":"(No title) Oracle questions (omitted)"},{"id":386,"ref":"PGM L. 1–18","title":"(No title) Oracle (?)"},{"id":415,"ref":"PGM LXII. 47–51","title":"(No title) Oracle"},{"id":436,"ref":"PGM LXXIII–LXXVI","title":"(No titles) Oracle questions (omitted)"}],"Practical Magic":[{"id":67,"ref":"PGM IV. 2359–72","title":"Business spell"},{"id":68,"ref":"PGM IV. 2373–2440","title":"Charm for acquiring business"},{"id":78,"ref":"PGM IV. 3125–71","title":"(No title) Spell for favor"},{"id":97,"ref":"PGM VII. 149–54","title":"To keep bugs out of the house"},{"id":99,"ref":"PGM VII. 167–86","title":"Demokritos' \"table gimmicks\""},{"id":132,"ref":"PGM VII. 390–93","title":"Victory charm for the races"},{"id":139,"ref":"PGM VII. 423–28","title":"To win at dice"},{"id":181,"ref":"PGM XIa. 1–40","title":"Apollonius of Tyana's old serving woman"},{"id":182,"ref":"PGM XIb. 1–5","title":"(No title) \"Table gimmick\" (?)"},{"id":199,"ref":"PGM XII. 193–201","title":"[To make] a tincture of gold"},{"id":202,"ref":"PGM XII. 351–64","title":"Demokritos' \"sphere\""},{"id":235,"ref":"PDM xiv. 428–50","title":"(No title) Spell for going before a superior"},{"id":368,"ref":"PGM XXXVI. 312–20","title":"Charm to open a door"},{"id":369,"ref":"PGM XXXVI. 320–32","title":"Contraceptive spell"},{"id":407,"ref":"PDM lxi. 106–11","title":"Prescription for a donkey not moving"},{"id":422,"ref":"PGM LXIII. 24–25","title":"Contraceptive"},{"id":423,"ref":"PGM LXIII. 26–28","title":"Contraceptive"},{"id":425,"ref":"PGM LXV. 1–4","title":"Spell to [prevent pregnancy]"},{"id":467,"ref":"PGM XCV. 7–13","title":"Concerning the mole-[rat]"},{"id":539,"ref":"PDM Supplement 162–68","title":"Spell for finding your house of life"},{"id":540,"ref":"PDM Supplement 168–84","title":"Spell for reciting a document"}],"Prayer":[{"id":4,"ref":"PGM I. 195–222","title":"Prayer of deliverance"},{"id":49,"ref":"PGM IV. 1115–66","title":"Hidden stele (prayer)"},{"id":50,"ref":"PGM IV. 1167–1226","title":"Stele (spell for deliverance)"},{"id":65,"ref":"PGM IV. 2145–2240","title":"Divine assistance from three Homeric verses"},{"id":72,"ref":"PGM IV. 2785–2890","title":"Prayer to Selene"},{"id":86,"ref":"PGM V. 96–172","title":"Stele of Jeu the hieroglyphist (letter)"},{"id":94,"ref":"PGM VI. 1–47","title":"(No title) Prayer for encounter with Helios"},{"id":150,"ref":"PGM VII. 591–92","title":"(No title) Prayer of invocation"},{"id":162,"ref":"PGM VII. 756–94","title":"Prayer"},{"id":187,"ref":"PDM xii 21–49","title":"(No title) Prayer for a revelation of a remedy for a disease"},{"id":321,"ref":"PGM XVIIb. 1–23","title":"(No title) Prayer"},{"id":333,"ref":"PGM XXIIb. 1–26","title":"Prayer of Jacob"},{"id":345,"ref":"PGM XXIX. 1–10","title":"(No title) Prayer (poem)"},{"id":361,"ref":"PGM XXXVI. 211–30","title":"Prayer to Helios: charm to restrain anger, and for victory and favor"},{"id":441,"ref":"PGM LXXXI. 1–10","title":"(No title) Greetings to deities"}],"Protection":[{"id":4,"ref":"PGM I. 195–222","title":"Prayer of deliverance"},{"id":32,"ref":"PGM IV. 86–87","title":"Phylactery against daimons"},{"id":50,"ref":"PGM IV. 1167–1226","title":"Stele (spell for deliverance)"},{"id":97,"ref":"PGM VII. 149–54","title":"To keep bugs out of the house"},{"id":122,"ref":"PGM VII. 311–16","title":"Phylactery"},{"id":123,"ref":"PGM VII. 317–18","title":"Another phylactery"},{"id":128,"ref":"PGM VII. 370–73","title":"(Spell) against every wild animal"},{"id":145,"ref":"PGM VII. 490–504","title":"(No title) Spell for protection"},{"id":149,"ref":"PGM VII. 579–90","title":"Phylactery"},{"id":195,"ref":"PGM XII. 160–78","title":"(No title) Spell to release from bonds"},{"id":253,"ref":"PDM xiv. 701–5","title":"(No title) Spell against \"evil sleep\""},{"id":359,"ref":"PGM XXXVI. 178–87","title":"Charm to break spells"},{"id":363,"ref":"PGM XXXVI. 256–64","title":"(No title) Charm to break enchantment"},{"id":395,"ref":"PGM LIX. 1–15","title":"(No title) Phylactery"},{"id":432,"ref":"PGM LXX. 4–25","title":"Charm of Hekate Ereschigal against fear of punishment"},{"id":433,"ref":"PGM LXX. 26–51","title":"Against fear and to dissolve spells"},{"id":434,"ref":"PGM LXXI. 1–8","title":"Phylactery"},{"id":450,"ref":"PGM LXXXIX. 1–27","title":"(No title) Phylactery for fever, phantoms, daimons, etc."},{"id":490,"ref":"PGM CXIV. 1–14","title":"(No title) Amulet for attacks by daimons and for epilepsy"},{"id":502,"ref":"PGM CXXI. 1–14","title":"(No title) Phylactery for a variety of evils"}],"Reference Work":[{"id":1,"ref":"PGM I","title":"(No title) Magical handbook"},{"id":9,"ref":"PGM II","title":"(No title) Magical handbook"},{"id":12,"ref":"PGM III","title":"(No title) Magical handbook"},{"id":28,"ref":"PGM IV","title":"(No title) Magical handbook"},{"id":40,"ref":"PGM IV. 471–73","title":"(No title) Verses from Homer"},{"id":41,"ref":"PGM IV. 474","title":"(No title) Verse from Homer"},{"id":43,"ref":"PGM IV. 830","title":"(No title) Verse from Homer"},{"id":82,"ref":"PGM V","title":"(No title) Magical handbook"},{"id":91,"ref":"PGM V. 447–58","title":"(No title) Instruction concerning a magical ring"},{"id":95,"ref":"PGM VII","title":"(No title) Magical handbook"},{"id":184,"ref":"PDM xii (PGM XII)","title":"(No title) Magical handbook"},{"id":190,"ref":"PGM XII. 96–106","title":"Himerios' recipes"},{"id":206,"ref":"PGM XII. 401–44","title":"Interpretations"},{"id":213,"ref":"PDM xii. 147–64 / [PGM XII. 480–95]","title":"A sacred book called \"Unique\" or \"Eighth Book of Moses\""},{"id":214,"ref":"PGM XIII. 1–734","title":"[Part A: Initiation ritual and magical handbook]"},{"id":217,"ref":"PGM XIII. 647–734","title":"(No title) A collection of miscellaneous spells"},{"id":218,"ref":"PGM XIII. 734–1077","title":"(No title) Magical handbook"},{"id":232,"ref":"PDM xiv. 366–75","title":"(No title) Various recipes"},{"id":249,"ref":"PDM xiv. 636–69","title":"(No title) Introduction to a collection of spells (?)"},{"id":271,"ref":"PDM xiv. 886–96","title":"(No title) Recipes involving herbs"},{"id":272,"ref":"PDM xiv. 897–910","title":"(No title) List of herbs and minerals"},{"id":275,"ref":"PDM xiv. 920–29","title":"(No title) Information concerning mineral"},{"id":277,"ref":"PDM xiv. 933–34","title":"(No title) Information concerning mineral"},{"id":279,"ref":"PDM xiv. 940–52","title":"(No title) Information concerning salamander and herbs"},{"id":283,"ref":"PDM xiv. 966–69","title":"(No title) Information concerning herbs"},{"id":332,"ref":"PGM XXIIa. 1–27","title":"(No title) Magico-medical recipes"},{"id":336,"ref":"PGM XXIII. 1–70","title":"Fragment of the Kestoi of Julius Africanus"},{"id":442,"ref":"PGM LXXXII. 1–12","title":"(No title) Recipe for ingredients (fragment of formulary?)"},{"id":487,"ref":"PGM CXI. 1–15","title":"(No title) Instruction for making magical figures"},{"id":495,"ref":"PGM CXIXa. 1","title":"(No title) Fragment from formulary"},{"id":503,"ref":"PGM CXXII. 1–5","title":"An excerpt for enchantments"},{"id":520,"ref":"PGM CXXIV. 6–43","title":"(No title) Fragments of spells"},{"id":524,"ref":"PGM CXXVII. 1–12","title":"(No title) Fragment of formulary of magico-medical prescriptions"},{"id":541,"ref":"PDM Supplement 185–208","title":"(No title) Fragments of rites and formulae"}],"Restraint":[{"id":38,"ref":"PGM IV. 467–68","title":"Charm to restrain anger"},{"id":44,"ref":"PGM IV. 831–32","title":"Charm to restrain anger"},{"id":63,"ref":"PGM IV. 2125–39","title":"A restraining seal"},{"id":138,"ref":"PGM VII. 417–22","title":"Restraining spell"},{"id":140,"ref":"PGM VII. 429–58","title":"Restraining spell"},{"id":168,"ref":"PGM VII. 940–68","title":"Charm to restrain anger and to subject"},{"id":179,"ref":"PGM X. 24–35","title":"Charm to restrain anger"},{"id":196,"ref":"PGM XII. 179–81","title":"(No title) Spell for restraining anger"},{"id":353,"ref":"PGM XXXVI. 1–34","title":"Charm to restrain"},{"id":354,"ref":"PGM XXXVI. 35–68","title":"Charm to restrain anger and to secure favor"},{"id":358,"ref":"PGM XXXVI. 161–77","title":"Charm to restrain anger, and for success"},{"id":439,"ref":"PGM LXXIX. 1–7","title":"Charm to restrain anger"},{"id":440,"ref":"PGM LXXX. 1–5","title":"Charm to restrain anger"}],"Revelation":[{"id":10,"ref":"PGM II. 1–64","title":"(No title) Spell for revelation"},{"id":11,"ref":"PGM II. 65–183","title":"(No title) Alternative spell for revelation"},{"id":15,"ref":"PGM III. 187–262","title":"(No title) Spell for revelation"},{"id":29,"ref":"PGM IV. 1–25","title":"(No title) Spell for revelation"},{"id":31,"ref":"PGM IV. 52–85","title":"(No title) Spell for revelation"},{"id":90,"ref":"PGM V. 370–446","title":"(No title) Spell for revelation"},{"id":164,"ref":"PGM VII. 846–61","title":"Shadow on the sun (spell for revelation)"},{"id":194,"ref":"PGM XII. 153–60","title":"Spell for a divine revelation"},{"id":220,"ref":"PDM xiv. 1–92","title":"(No title) Spell for revelation"},{"id":300,"ref":"PDM xiv. 1078–89","title":"(No title) Request for revelation"},{"id":381,"ref":"PGM XLVI. 1–4","title":"(No title) Request for revelation (?)"},{"id":397,"ref":"PDM lxi. 1–30","title":"(No title) Spell for revelation"},{"id":437,"ref":"PGM LXXVII. 1–24","title":"(No title) Charm for getting a revelation"}],"Ritual":[{"id":13,"ref":"PGM III. 1–164","title":"(No title) Cat ritual for many purposes"},{"id":30,"ref":"PGM IV. 26–51","title":"Initiation"},{"id":36,"ref":"PGM IV. 286–95","title":"Spell for picking a plant"},{"id":42,"ref":"PGM IV. 475–829","title":"(No title) The \"Mithras Liturgy\""},{"id":58,"ref":"PGM IV. 1596–1715","title":"Consecration for all purposes"},{"id":75,"ref":"PGM IV. 2967–3006","title":"(No title) Spell for picking a plant"},{"id":126,"ref":"PGM VII. 348–58","title":"Divination by means of a boy"},{"id":153,"ref":"PGM VII. 628–42","title":"(No title) Rite involving a magical ring"},{"id":188,"ref":"PGM XII. 1–13","title":"Rite (to produce an epiphany of Kore)"},{"id":213,"ref":"PDM xii. 147–64 / [PGM XII. 480–95]","title":"A sacred book called \"Unique\" or \"Eighth Book of Moses\""},{"id":214,"ref":"PGM XIII. 1–734","title":"[Part A: Initiation ritual and magical handbook]"},{"id":215,"ref":"PGM XIII. 1–343","title":"[Part B: A second, different version of the initiation ritual]"},{"id":216,"ref":"PGM XIII. 343–646","title":"[Part C: A third, different version of the initiation ritual]"},{"id":223,"ref":"PDM xiv. 116","title":"A \"god's arrival\""},{"id":225,"ref":"PDM xiv. 150–231","title":"A \"god's arrival\""},{"id":406,"ref":"PDM lxi. 100–105","title":"The red cloth of Nephthys"},{"id":435,"ref":"PGM LXXII. 1–36","title":"[Rite concerning the Bear]"},{"id":447,"ref":"PGM LXXXVI. 3–7","title":"(No title) Rite"},{"id":451,"ref":"PGM XC. 1–13","title":"(No title) Rite or phylactery"},{"id":455,"ref":"PGM XCIII. 1–6","title":"(No title) Sacrificial rite"},{"id":456,"ref":"PGM XCIII. 7–21","title":"(No title) Rite"},{"id":487,"ref":"PGM CXI. 1–15","title":"(No title) Instruction for making magical figures"},{"id":536,"ref":"PDM Supplement 130–38","title":"A \"god's arrival\" of Osiris"},{"id":538,"ref":"PDM Supplement 149–62","title":"A \"god's arrival\" of Thoth"},{"id":540,"ref":"PDM Supplement 168–84","title":"Spell for reciting a document"}],"Separation":[{"id":203,"ref":"PGM XII. 365–75","title":"Charm for causing separation"},{"id":207,"ref":"PDM xii. 50–61 / [PGM XII. 445–48]","title":"Spell for separating one person from another"},{"id":208,"ref":"PDM xii. 62–75 / [PGM XII. 449–52]","title":"Another (spell for separation)"},{"id":209,"ref":"PDM xii. 76–107 / [PGM XII. 453–65]","title":"A spell [to] cause a woman to hate a man"},{"id":231,"ref":"PDM xiv. 355–65","title":"The method (spell for separating man and woman)"},{"id":427,"ref":"PGM LXVI. 1–11","title":"(No title) Charm to cause separation"},{"id":521,"ref":"PGM CXXVa–f","title":"(No title) Spell to cause separation"},{"id":522,"ref":"PGM CXXVIa. 1–21","title":"(No title) Spell to cause separation"},{"id":523,"ref":"PGM CXXVIb. 1–17","title":"(No title) Spell to cause separation"}],"Shadow Magic":[{"id":26,"ref":"PGM III. 612–32","title":"(No title) Spell for gaining control of shadow"}],"Sleep Magic":[{"id":81,"ref":"PGM IV. 3255–74","title":"(No title) Spell to induce insomnia"},{"id":129,"ref":"PGM VII. 374–76","title":"Charm to induce insomnia"},{"id":130,"ref":"PGM VII. 376–84","title":"Another (charm to induce insomnia)"},{"id":155,"ref":"PGM VII. 652–60","title":"Spell to induce insomnia"},{"id":204,"ref":"PGM XII. 376–96","title":"Charm to induce insomnia"},{"id":250,"ref":"PDM xiv. 670–74","title":"A spell (to cause \"evil sleep\") / [PGM XIVc. 16–27]"},{"id":253,"ref":"PDM xiv. 701–5","title":"(No title) Spell against \"evil sleep\""},{"id":254,"ref":"PDM xiv. 706–10","title":"Prescription (to cause \"evil sleep\")"},{"id":255,"ref":"PDM xiv. 711–15","title":"Another (spell to cause \"evil sleep\")"},{"id":256,"ref":"PDM xiv. 716–24","title":"Another (spell to cause \"evil sleep\")"},{"id":257,"ref":"PDM xiv. 724–26","title":"Another (spell to cause \"evil sleep\")"},{"id":258,"ref":"PDM xiv. 727–36","title":"A prescription (three prescriptions to cause \"evil sleep\")"},{"id":259,"ref":"PDM xiv. 737–38","title":"A prescription (to cause \"evil sleep\")"},{"id":260,"ref":"PDM xiv. 739–40","title":"Another (spell to cause \"evil sleep\")"},{"id":261,"ref":"PDM xiv. 741","title":"Another (spell to cause \"evil sleep\")"},{"id":262,"ref":"PDM xiv. 742","title":"Another (spell to cause \"evil sleep\")"},{"id":263,"ref":"PDM xiv. 743–49","title":"Another (spell to cause \"evil sleep\")"},{"id":273,"ref":"PDM xiv. 912–16","title":"(No title) Spell to cause \"evil sleep\""},{"id":274,"ref":"PDM xiv. 917–19","title":"Prescription (to cause \"evil sleep\")"},{"id":390,"ref":"PGM LII. 20–26","title":"Spell to induce insomnia"},{"id":510,"ref":"PGM CXXIIIa. 51–52","title":"For sleep"}],"Social Magic":[{"id":39,"ref":"PGM IV. 469–70","title":"(Charm) to get friends"},{"id":45,"ref":"PGM IV. 833–34","title":"(Charm) to get friends"},{"id":67,"ref":"PGM IV. 2359–72","title":"Business spell"},{"id":68,"ref":"PGM IV. 2373–2440","title":"Charm for acquiring business"},{"id":78,"ref":"PGM IV. 3125–71","title":"(No title) Spell for favor"},{"id":100,"ref":"PGM VII. 186–90","title":"Favor and victory charm"},{"id":112,"ref":"PGM VII. 215–18","title":"Stele of Aphrodite (spell for favor)"},{"id":174,"ref":"PGM VII. 1017–26","title":"[No title] Spell for favor and victory"},{"id":186,"ref":"PDM xii 6–20","title":"A ring to cause praise"},{"id":197,"ref":"PGM XII. 182–89","title":"(No title) Spell for gaining favor"},{"id":201,"ref":"PGM XII. 270–350","title":"A little ring for success and favor and victory"},{"id":205,"ref":"PGM XII. 397–400","title":"To gain favor and friendship forever"},{"id":228,"ref":"PDM xiv. 295–308","title":"A spell for causing favor"},{"id":235,"ref":"PDM xiv. 428–50","title":"(No title) Spell for going before a superior"},{"id":352,"ref":"PGM XXXV. 1–42","title":"Charm for favor and victory"},{"id":354,"ref":"PGM XXXVI. 35–68","title":"Charm to restrain anger and to secure favor"},{"id":358,"ref":"PGM XXXVI. 161–77","title":"Charm to restrain anger, and for success"},{"id":365,"ref":"PGM XXXVI. 275–83","title":"Charm for gaining favor"},{"id":405,"ref":"PDM lxi. 95–99","title":"Spell of giving praise and love in Nubian"},{"id":431,"ref":"PGM LXX. 1–4","title":"Charm for favor, etc."},{"id":454,"ref":"PGM XCII. 1–16","title":"[Charm] for favor"}],"Solar Magic":[{"id":25,"ref":"PGM III. 494–611","title":"[Spell to establish a relationship with] Helios"},{"id":33,"ref":"PGM IV. 88–93","title":"Another, to Helios"},{"id":94,"ref":"PGM VI. 1–47","title":"(No title) Prayer for encounter with Helios"},{"id":269,"ref":"PDM xiv. 856–75","title":"(No title) Inquiry of the sun"},{"id":270,"ref":"PDM xiv. 875–85","title":"Here is another (inquiry of the sun)"},{"id":361,"ref":"PGM XXXVI. 211–30","title":"Prayer to Helios: charm to restrain anger, and for victory and favor"}],"Spirit Work":[{"id":2,"ref":"PGM I. 1–42","title":"[Rite] for acquiring an assistant daimon"},{"id":3,"ref":"PGM I. 42–195","title":"The spell of Pnouthis (for acquiring an assistant daimon)"},{"id":26,"ref":"PGM III. 612–32","title":"(No title) Spell for gaining control of shadow"},{"id":32,"ref":"PGM IV. 86–87","title":"Phylactery against daimons"},{"id":47,"ref":"PGM IV. 850–929","title":"Charm of Solomon that produces a trance"},{"id":51,"ref":"PGM IV. 1227–64","title":"Rite for driving out daimons"},{"id":76,"ref":"PGM IV. 3007–86","title":"Charm of Pibechis for those possessed by daimons"},{"id":146,"ref":"PGM VII. 505–28","title":"Meeting with your own daimon"},{"id":189,"ref":"PGM XII. 14–95","title":"Eros as assistant daimon"},{"id":392,"ref":"PGM LVII. 1–37","title":"(No title) Rite to acquire an assistant daimon (?)"},{"id":445,"ref":"PGM LXXXV. 1–6","title":"(No title) For daimon possession"},{"id":450,"ref":"PGM LXXXIX. 1–27","title":"(No title) Phylactery for fever, phantoms, daimons, etc."},{"id":461,"ref":"PGM XCIV. 17–21","title":"For those possessed by daimons"},{"id":490,"ref":"PGM CXIV. 1–14","title":"(No title) Amulet for attacks by daimons and for epilepsy"}],"Trance":[{"id":47,"ref":"PGM IV. 850–929","title":"Charm of Solomon that produces a trance"}],"Trickery":[{"id":99,"ref":"PGM VII. 167–86","title":"Demokritos' \"table gimmicks\""},{"id":182,"ref":"PGM XIb. 1–5","title":"(No title) \"Table gimmick\" (?)"}],"Victory":[{"id":100,"ref":"PGM VII. 186–90","title":"Favor and victory charm"},{"id":132,"ref":"PGM VII. 390–93","title":"Victory charm for the races"},{"id":139,"ref":"PGM VII. 423–28","title":"To win at dice"},{"id":147,"ref":"PGM VII. 528–39","title":"Victory charm"},{"id":166,"ref":"PGM VII. 919–24","title":"Hermes' wondrous victory charm"},{"id":174,"ref":"PGM VII. 1017–26","title":"[No title] Spell for favor and victory"},{"id":201,"ref":"PGM XII. 270–350","title":"A little ring for success and favor and victory"},{"id":341,"ref":"PGM XXVII. 1–5","title":"Victory charm"},{"id":352,"ref":"PGM XXXV. 1–42","title":"Charm for favor and victory"},{"id":430,"ref":"PGM LXIX. 1–3","title":"(No title) Victory spell (?)"},{"id":513,"ref":"PGM CXXIIIa. 69–72","title":"For victory"}],"Vision":[{"id":27,"ref":"PGM III. 633–731","title":"(No title) Spell for a direct vision"},{"id":47,"ref":"PGM IV. 850–929","title":"Charm of Solomon that produces a trance"},{"id":48,"ref":"PGM IV. 930–1114","title":"Charm that produces direct vision"},{"id":84,"ref":"PGM V. 54–69","title":"Direct vision spell"},{"id":93,"ref":"PGM Va. 1–3","title":"(No title) Spell for direct vision"},{"id":124,"ref":"PGM VII. 319–34","title":"Charm for direct vision"},{"id":125,"ref":"PGM VII. 335–47","title":"Charm for direct vision"},{"id":160,"ref":"PGM VII. 727–39","title":"Charm for a direct vision of Apollo"},{"id":221,"ref":"PDM xiv. 93–114 / [PGM XIVa. 1–11]","title":"(No title) Spell for vision (?)"},{"id":222,"ref":"PDM xiv. 115","title":"Another spell for vision (?)"},{"id":304,"ref":"PDM xiv. 1110–29","title":"(No title) Spell to open eyes for divination"}],"Voces Magicae":[{"id":297,"ref":"PDM xiv. 1056–62","title":"(No title) Spells involving voces magicae"},{"id":457,"ref":"PGM XCIV. 1–3","title":"(No title) Voces magicae"},{"id":507,"ref":"PGM CXXIIIa. 1–23","title":"(No title) Voces magicae"},{"id":514,"ref":"PGM CXXIIIb","title":"(No title) Voces magicae"},{"id":515,"ref":"PGM CXXIIIc","title":"(No title) Voces magicae"}]};
+
+let activeTheme = null;
+
+function buildThemeSidebar(filter=''){
+  const list=document.getElementById('themeList');
+  const themes=Object.keys(PGM_DATA).sort();
+  const filtered=themes.filter(t=>!filter||t.toLowerCase().includes(filter.toLowerCase()));
+  document.getElementById('theme-sidebar-count').textContent=`(${filtered.length})`;
+  list.innerHTML=filtered.map(t=>`
+    <li class="theme-item${activeTheme===t?' active':''}" onclick="selectTheme('${t.replace(/'/g,"\\'")}')" data-theme="${t}">
+      <span>${t}</span>
+      <span class="count">${PGM_DATA[t].length}</span>
+    </li>
+  `).join('');
+}
+
+function filterThemeSidebar(){
+  buildThemeSidebar(document.getElementById('themeFilterInput').value);
+}
+
+function selectTheme(theme){
+  activeTheme=theme;
+  buildThemeSidebar(document.getElementById('themeFilterInput').value);
+
+  const spells=PGM_DATA[theme]||[];
+  document.getElementById('themePlaceholder').style.display='none';
+  const content=document.getElementById('themeResultsContent');
+  content.style.display='block';
+
+  document.getElementById('themeResultsTitle').innerHTML=`${theme} <span class="result-count">${spells.length}</span>`;
+  document.getElementById('themeResultsMeta').textContent=`${spells.length} spell${spells.length!==1?'s':''} attested in this category across the PGM/PDM corpus`;
+  document.getElementById('spellSearchInput').value='';
+
+  const ul=document.getElementById('spellList');
+  ul.innerHTML=spells.map(s=>`
+    <li class="spell-item" data-title="${s.title.toLowerCase()}" data-ref="${s.ref.toLowerCase()}">
+      <span class="spell-ref">${s.ref}</span>
+      <span class="spell-title">${s.title}</span>
+    </li>
+  `).join('');
+  updateSpellCount();
+}
+
+function filterSpells(){
+  const q=document.getElementById('spellSearchInput').value.toLowerCase();
+  document.querySelectorAll('.spell-item').forEach(li=>{
+    const match=!q||li.dataset.title.includes(q)||li.dataset.ref.includes(q);
+    li.classList.toggle('hidden',!match);
+  });
+  updateSpellCount();
+}
+
+function updateSpellCount(){
+  const total=document.querySelectorAll('.spell-item').length;
+  const visible=document.querySelectorAll('.spell-item:not(.hidden)').length;
+  const q=document.getElementById('spellSearchInput').value;
+  document.getElementById('spellCount').textContent=q?`Showing ${visible} of ${total} spells`:``;
+}
+
+// ── INIT ──────────────────────────────────────────────
+renderTable();
+document.querySelector('thead th').classList.add('sort-asc');
+buildThemeSidebar();
+
+// Hash routing
+const hash=window.location.hash.replace('#','');
+if(hash==='themes') showPage('themes');
+</script>
+</body>
+</html>
